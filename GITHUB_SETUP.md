@@ -47,6 +47,8 @@ git branch -M main
 git push -u origin main
 ```
 
+> **Note:** If the repo was already created with `gh repo create` in Step A, the remote and initial push are handled automatically.
+
 ## What's Included
 
 - `README.md` — Project overview and quick start
