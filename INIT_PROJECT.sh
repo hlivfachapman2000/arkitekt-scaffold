@@ -823,6 +823,16 @@ EOF
 echo "🛠️  Initializing CLI Harnesses..."
 
 for CLI in CLAUDE_CODE CODEX GEMINI_CLI KIMI_CODE HERMES_AGENT OPENCODE; do
+    # Map CLI name to expected binary and npm package
+    case "$CLI" in
+        CLAUDE_CODE) CLI_BIN="claude"; CLI_PKG="@anthropic-ai/claude-code" ;;
+        CODEX)       CLI_BIN="codex"; CLI_PKG="@openai/codex" ;;
+        GEMINI_CLI)  CLI_BIN="gemini"; CLI_PKG="@google/gemini-cli" ;;
+        KIMI_CODE)   CLI_BIN="kimi-code"; CLI_PKG="kimi-code" ;;
+        HERMES_AGENT) CLI_BIN="hermes-agent"; CLI_PKG="hermes-agent" ;;
+        OPENCODE)    CLI_BIN="opencode"; CLI_PKG="opencode" ;;
+    esac
+
     cat > "12__CLI_HARNESSES/${CLI}/${CLI}.md" <<EOF
 ---
 tool: ${CLI}
@@ -855,12 +865,119 @@ This harness connects ${CLI} to the Arkitekt swarm.
 - Memory: \`07__MEMORY_SYSTEM/\`
 - Logs: \`07__MEMORY_SYSTEM/CLI_SESSIONS/${CLI}/\`
 
+## Installation
+See ALIASES.sh and package manager docs for ${CLI} install instructions.
+
 ## Aliases
 See ALIASES.sh for shortcuts.
 EOF
 
-touch "12__CLI_HARNESSES/${CLI}/ALIASES.sh"
+    cat > "12__CLI_HARNESSES/${CLI}/ALIASES.sh" <<EOF
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════
+# ${CLI} CLI Harness — Arkitekt Scaffold v3.1
+# ═══════════════════════════════════════════════════════════════
+
+# ── Resolve project root (two levels up from this file) ─────
+SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="\$(cd "\${SCRIPT_DIR}/../../.." && pwd)"
+
+# ── Source environment ────────────────────────────────────────
+if [ -f "\${PROJECT_ROOT}/.env" ]; then
+    set -a
+    source "\${PROJECT_ROOT}/.env"
+    set +a
+fi
+
+# ── Binary detection ──────────────────────────────────────────
+${CLI}_BIN=""
+if command -v ${CLI_BIN} >/dev/null 2>&1; then
+    ${CLI}_BIN="${CLI_BIN}"
+elif command -v npx >/dev/null 2>&1 && npm view ${CLI_PKG} version >/dev/null 2>&1; then
+    ${CLI}_BIN="npx -y ${CLI_PKG}"
+fi
+
+# ── Install helper ────────────────────────────────────────────
+_arkitekt_${CLI_BIN}_install() {
+    echo "🔧 ${CLI} CLI is not installed."
+    echo ""
+    echo "Install options:"
+    echo "  npm:     npm install -g ${CLI_PKG}"
+    echo "  npx:     npx -y ${CLI_PKG}"
+    echo ""
+    echo "After installing, reload your shell or run:"
+    echo "  source 12__CLI_HARNESSES/${CLI}/ALIASES.sh"
+    return 1
+}
+
+# ── Launch with context ───────────────────────────────────────
+_arkitekt_${CLI_BIN}_launch() {
+    local -a ctx_args=()
+    if [ -d "\${PROJECT_ROOT}/05__AGENTS" ]; then
+        ctx_args+=("--context" "\${PROJECT_ROOT}/05__AGENTS/")
+    fi
+    if [ -d "\${PROJECT_ROOT}/06__KNOWLEDGE_VAULT" ]; then
+        ctx_args+=("--context" "\${PROJECT_ROOT}/06__KNOWLEDGE_VAULT/")
+    fi
+    # shellcheck disable=SC2086
+    \${${CLI}_BIN} "\${ctx_args[@]}" "\$@"
+}
+
+# ── Public function ───────────────────────────────────────────
+launch_$(echo "$CLI" | tr '[:upper:]' '[:lower:]')() {
+    if [ -z "\${${CLI}_BIN}" ]; then
+        _arkitekt_${CLI_BIN}_install
+        return 1
+    fi
+    _arkitekt_${CLI_BIN}_launch "\$@"
+}
+
+# ── Self-launch mode ──────────────────────────────────────────
+if [ "\${BASH_SOURCE[0]}" = "\${0}" ]; then
+    launch_$(echo "$CLI" | tr '[:upper:]' '[:lower:]') "\$@"
+fi
+EOF
+    chmod +x "12__CLI_HARNESSES/${CLI}/ALIASES.sh"
 done
+
+# ── Master loader script ──────────────────────────────────────
+cat > "12__CLI_HARNESSES/_ORCHESTRATOR/source_all.sh" <<'EOF'
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════
+# Arkitekt CLI Harness Master Loader — v3.1
+# Source this file to load every CLI harness alias into your shell.
+#   source 12__CLI_HARNESSES/_ORCHESTRATOR/source_all.sh
+# ═══════════════════════════════════════════════════════════════
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HARNESSES_DIR="${SCRIPT_DIR}/.."
+
+# ── Load each harness ─────────────────────────────────────────
+for HARNESS in CLAUDE_CODE CODEX GEMINI_CLI KIMI_CODE HERMES_AGENT OPENCODE; do
+    ALIASES_FILE="${HARNESSES_DIR}/${HARNESS}/ALIASES.sh"
+    if [ -f "$ALIASES_FILE" ]; then
+        # shellcheck source=/dev/null
+        source "$ALIASES_FILE"
+        echo "✅ Loaded ${HARNESS} harness"
+    else
+        echo "⚠️  Missing ${HARNESS} harness (expected ${ALIASES_FILE})"
+    fi
+done
+
+echo ""
+echo "🚀 Arkitekt CLI harnesses loaded. Available commands:"
+echo "  Claude Code:  ccd, ccd-review, ccd-tdd, ccd-orchestrate, ccd-swarm, ccd-safe"
+echo "  Codex:        cx, cx-review, cx-cloud, cx-fast, cx-tdd, cx-debug, cx-swarm"
+echo "  Gemini:       gem, gem-research, gem-code, gem-swarm"
+echo "  Kimi Code:    kimi, kimi-long, kimi-research, kimi-swarm"
+echo "  Hermes:       hermes, hermes-dashboard, hermes-brainstorm, hermes-skills, hermes-swarm"
+echo "  Opencode:     oc, oc-swarm"
+echo ""
+echo "💡 Not all binaries may be installed. Missing tools will show install instructions when invoked."
+echo "💡 To auto-load on every shell session, add this to your ~/.zshrc or ~/.bashrc:"
+echo "   source $(cd "${SCRIPT_DIR}" && pwd)/source_all.sh"
+EOF
+chmod +x "12__CLI_HARNESSES/_ORCHESTRATOR/source_all.sh"
 
 cat > "12__CLI_HARNESSES/_SHARED/context_sync.py" <<'PYEOF'
 #!/usr/bin/env python3
