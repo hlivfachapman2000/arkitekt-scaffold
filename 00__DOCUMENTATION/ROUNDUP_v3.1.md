@@ -41,7 +41,7 @@ A filesystem-native, agent-swarm-ready project scaffold designed for the age of 
 02__BACKEND/            — API, services, workers, data
 03__ASSETS/             — Images, fonts, media, raw files
 04__INFRASTRUCTURE/     — Docker, k8s, terraform, CI/CD
-05__AGENTS/             — 🤖 The swarm lives here
+05__AGENTS/             — 🤖 The swarm lives here (_ORCHESTRATOR, _CRITIC, _MEMORY_KEEPER, _PROTOCOLS, _SANDBOX)
 06__KNOWLEDGE_VAULT/    — 📚 Obsidian-compatible shared brain
 07__MEMORY_SYSTEM/      — 🧠 SQLite + Qdrant + OpenViking bridge
 08__PROMPTS/            — 🎯 PromptFoo registry + redteam config
@@ -89,8 +89,8 @@ Every agent carries these canonical files:
 
 20 scripts to keep your entire development environment sharp:
 
-| Script | What It Updates |
-|--------|----------------|
+| File | What It Updates |
+|------|----------------|
 | `UPDATE_ALL.sh` | **Master script** — runs everything |
 | `UPDATE_BREW.sh` | Homebrew formulas + casks + doctor |
 | `UPDATE_NPM.sh` | npm itself + global packages |
@@ -108,9 +108,16 @@ Every agent carries these canonical files:
 | `UPDATE_RUSTUP.sh` | Rustup toolchains |
 | `UPDATE_PYENV.sh` | Pyenv + latest Python |
 | `UPDATE_TOPGRADE.sh` | Wrapper for topgrade |
-| `topgrade.toml` | Arkitekt config for topgrade |
-| `com.arkitekt.system-maintenance.plist` | macOS launchd auto-scheduler |
+| `topgrade.toml` | Arkitekt config for topgrade (config, not script) |
+| `com.arkitekt.system-maintenance.plist` | macOS launchd auto-scheduler (config) |
 | `README.md` | Full maintenance docs |
+
+**Agent persona templates** in `10__SCRIPTS/_TEMPLATES/`:
+| Template | Purpose |
+|----------|---------|
+| `SNIPER.md` | Sharp, focused task agent |
+| `RESEARCHER.md` | Deep-dive investigation agent |
+| `CODER.md` | Full-stack implementation agent |
 
 **Run everything:**
 ```bash
@@ -316,6 +323,7 @@ docker compose up -d qdrant
 | Deep overview | `00__DOCUMENTATION/DEEP_SYSTEM_OVERVIEW.md` | Canonical reference |
 | GitHub guide | `GITHUB_SETUP.md` | Push instructions |
 | This roundup | `00__DOCUMENTATION/ROUNDUP_v3.1.md` | Release notes |
+| Zip backup | `~/Desktop/ARKITEKT_SCAFFOLD_v3.1.zip` | Portable archive (~118K) |
 
 ---
 
