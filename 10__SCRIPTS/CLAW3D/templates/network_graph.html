@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLAW3D — Agent Network</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f0f23;
+            --node: #00ff9d;
+            --edge: #444;
+            --text: #e0e0e0;
+            --highlight: #ff6b35;
+            --broadcast: #f0f;
+        }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'SF Mono', Monaco, monospace;
+            overflow: hidden;
+        }
+        #graph {
+            width: 100vw;
+            height: 100vh;
+        }
+        .overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 15, 35, 0.9);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 16px;
+            backdrop-filter: blur(4px);
+        }
+        .overlay h1 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: var(--node);
+        }
+        .stats {
+            font-size: 12px;
+            line-height: 1.6;
+            opacity: 0.8;
+        }
+        .node circle {
+            stroke: var(--bg);
+            stroke-width: 2px;
+            transition: all 0.3s ease;
+        }
+        .node:hover circle {
+            stroke: var(--highlight);
+            stroke-width: 4px;
+            filter: drop-shadow(0 0 8px var(--highlight));
+        }
+        .node text {
+            fill: var(--text);
+            font-size: 11px;
+            pointer-events: none;
+            text-shadow: 0 0 4px var(--bg);
+        }
+        .link {
+            stroke-opacity: 0.6;
+            transition: stroke-opacity 0.3s;
+        }
+        .link:hover {
+            stroke-opacity: 1;
+            stroke: var(--highlight) !important;
+        }
+        .broadcast {
+            fill: var(--broadcast) !important;
+        }
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(15, 15, 35, 0.9);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 11px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px 0;
+        }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div id="graph"></div>
+    <div class="overlay">
+        <h1>🕸️ CLAW3D</h1>
+        <div class="stats" id="stats">
+            Loading...
+        </div>
+    </div>
+    <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--node)"></div>Active Agent</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--broadcast)"></div>Broadcast</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--highlight)"></div>High Traffic</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#555"></div>Orphaned</div>
+    </div>
+
+    <script>
+        // Load data from output.json or use demo data
+        async function loadData() {
+            try {
+                const response = await fetch('output.json');
+                return await response.json();
+            } catch (e) {
+                // Demo data
+                return {
+                    nodes: [
+                        {id: "_ORCHESTRATOR", group: 1},
+                        {id: "_CRITIC", group: 1},
+                        {id: "_MEMORY_KEEPER", group: 1},
+                        {id: "CODER", group: 2},
+                        {id: "RESEARCHER", group: 2},
+                        {id: "DESIGNER", group: 2}
+                    ],
+                    edges: [
+                        {source: "_ORCHESTRATOR", target: "CODER", value: 12},
+                        {source: "_ORCHESTRATOR", target: "RESEARCHER", value: 8},
+                        {source: "_ORCHESTRATOR", target: "DESIGNER", value: 5},
+                        {source: "CODER", target: "_CRITIC", value: 15},
+                        {source: "RESEARCHER", target: "_MEMORY_KEEPER", value: 6},
+                        {source: "DESIGNER", target: "CODER", value: 3}
+                    ]
+                };
+            }
+        }
+
+        function render(graph) {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            const svg = d3.select("#graph").append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .attr("viewBox", [0, 0, width, height]);
+
+            // Compute stats
+            const totalMsgs = graph.edges.reduce((a, e) => a + e.value, 0);
+            const avgDegree = (graph.edges.length * 2 / graph.nodes.length).toFixed(1);
+            const orphans = graph.nodes.filter(n => {
+                return !graph.edges.some(e => e.source === n.id || e.target === n.id);
+            }).length;
+
+            document.getElementById('stats').innerHTML = `
+                <div>Nodes: ${graph.nodes.length}</div>
+                <div>Edges: ${graph.edges.length}</div>
+                <div>Messages: ${totalMsgs}</div>
+                <div>Avg Degree: ${avgDegree}</div>
+                <div>Orphans: ${orphans}</div>
+            `;
+
+            // Scales
+            const colorScale = d3.scaleOrdinal()
+                .domain([1, 2, 3])
+                .range(["#00ff9d", "#4488ff", "#ff6b35"]);
+
+            const sizeScale = d3.scaleSqrt()
+                .domain([0, d3.max(graph.edges, d => d.value) || 1])
+                .range([5, 20]);
+
+            const widthScale = d3.scaleLinear()
+                .domain([0, d3.max(graph.edges, d => d.value) || 1])
+                .range([1, 8]);
+
+            // Simulation
+            const simulation = d3.forceSimulation(graph.nodes)
+                .force("link", d3.forceLink(graph.edges).id(d => d.id).distance(120))
+                .force("charge", d3.forceManyBody().strength(-400))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(30));
+
+            // Links
+            const link = svg.append("g")
+                .attr("stroke", "#555")
+                .selectAll("line")
+                .data(graph.edges)
+                .join("line")
+                .attr("class", "link")
+                .attr("stroke-width", d => widthScale(d.value));
+
+            // Nodes
+            const node = svg.append("g")
+                .selectAll("g")
+                .data(graph.nodes)
+                .join("g")
+                .attr("class", d => `node ${d.id.startsWith('_') ? 'meta' : ''} ${d.id === 'broadcast' ? 'broadcast' : ''}`)
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            node.append("circle")
+                .attr("r", d => {
+                    const deg = graph.edges.filter(e => e.source === d.id || e.target === d.id).length;
+                    return 8 + deg * 3;
+                })
+                .attr("fill", d => {
+                    if (d.id.startsWith('_')) return "#f0f";
+                    if (d.id === 'broadcast') return "#f0f";
+                    return colorScale(d.group || 2);
+                });
+
+            node.append("text")
+                .attr("x", 12)
+                .attr("y", 4)
+                .text(d => d.id);
+
+            // Tooltip
+            const tooltip = d3.select("body").append("div")
+                .style("position", "absolute")
+                .style("background", "rgba(15,15,35,0.95)")
+                .style("border", "1px solid #444")
+                .style("border-radius", "6px")
+                .style("padding", "8px 12px")
+                .style("font-size", "12px")
+                .style("pointer-events", "none")
+                .style("opacity", 0)
+                .style("transition", "opacity 0.2s");
+
+            node.on("mouseover", (event, d) => {
+                const connections = graph.edges.filter(e => e.source === d.id || e.target === d.id);
+                tooltip.style("opacity", 1)
+                    .html(`<strong>${d.id}</strong><br/>Connections: ${connections.length}<br/>Messages: ${connections.reduce((a,e)=>a+e.value,0)}`)
+                    .style("left", (event.pageX + 12) + "px")
+                    .style("top", (event.pageY - 12) + "px");
+            }).on("mouseout", () => {
+                tooltip.style("opacity", 0);
+            });
+
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
+
+        loadData().then(render);
+    </script>
+</body>
+</html>

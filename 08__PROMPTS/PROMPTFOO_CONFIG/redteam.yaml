@@ -1,0 +1,13 @@
+# PromptFoo Red Team Config
+# Security scanning: PII, injection, jailbreaks
+
+plugins:
+  - id: pii
+  - id: harmful
+  - id: hijacking
+  - id: injection
+
+targets:
+  - id: default
+    config:
+      temperature: 1.0

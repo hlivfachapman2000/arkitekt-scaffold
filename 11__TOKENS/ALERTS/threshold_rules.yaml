@@ -1,0 +1,16 @@
+# Alert Rules
+rules:
+  - name: "Daily Burn Rate"
+    condition: "daily_spend > (monthly_budget / 30) * 1.5"
+    action: "notify_slack"
+    severity: warning
+
+  - name: "Agent Overrun"
+    condition: "agent_spend > agent_budget * 0.95"
+    action: "pause_agent"
+    severity: critical
+
+  - name: "Project Cap"
+    condition: "total_spend > project_budget"
+    action: "hard_stop_all"
+    severity: emergency

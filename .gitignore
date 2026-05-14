@@ -1,0 +1,80 @@
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE ─────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Node ────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+
+# ── Rust ────────────────────────────────────────────────────
+target/
+Cargo.lock
+
+# ── Secrets ───────────────────────────────────────────────────
+.env
+.env.local
+*.pem
+*.key
+*.p12
+*.secrets
+*.credentials
+
+# ── CLI Auth (gitignored by design) ──────────────────────────
+12__CLI_HARNESSES/*/.claude/auth/
+12__CLI_HARNESSES/*/.codex/mcp/*.json
+12__CLI_HARNESSES/*/.gemini/*.json
+12__CLI_HARNESSES/*/.kimi/*.json
+12__CLI_HARNESSES/*/.hermes/skills/*.json
+12__CLI_HARNESSES/*/.opencode/*.json
+
+# ── Qdrant Data ─────────────────────────────────────────────
+07__MEMORY_SYSTEM/QDRANT/qdrant_storage/
+
+# ── SQLite ──────────────────────────────────────────────────
+07__MEMORY_SYSTEM/SQLITE/*.db
+07__MEMORY_SYSTEM/SQLITE/*.db-journal
+
+# ── Session Logs ────────────────────────────────────────────
+07__MEMORY_SYSTEM/SESSION_LOGS/**/*.jsonl
+07__MEMORY_SYSTEM/CLI_SESSIONS/**/*.jsonl
+
+# ── CLAW3D Output ───────────────────────────────────────────
+10__SCRIPTS/CLAW3D/output/
+
+# ── Token Reports ───────────────────────────────────────────
+11__TOKENS/TRACKING/**/*.jsonl
+
+# ── MISC Sorted / Quarantine ────────────────────────────────
+13__MISC/SORTED/
+13__MISC/UNSORTABLE/
+13__MISC/QUARANTINE/
+13__MISC/SORTER_CONFIG/reports/
+
+# ── Archive ─────────────────────────────────────────────────
+14__ARCHIVE/backups/*.zip
+14__ARCHIVE/backups/*.tar.gz
+14__ARCHIVE/temp/
+
+# ── Logs ────────────────────────────────────────────────────
+*.log
+10__SCRIPTS/SYSTEM_MAINTENANCE/logs/
+
+# ── Keep directory structure ────────────────────────────────
+!.gitkeep

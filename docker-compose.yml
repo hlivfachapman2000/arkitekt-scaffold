@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: arkitekt_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+      - ./07__MEMORY_SYSTEM/QDRANT:/qdrant/config:ro
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__HTTP_PORT: 6333
+    restart: unless-stopped
+
+  # Optional: SQLite web viewer (if you want browser-based DB inspection)
+  # sqlite-web:
+  #   image: coleifer/sqlite-web:latest
+  #   container_name: arkitekt_sqlite_web
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ./07__MEMORY_SYSTEM/SQLITE:/data:ro
+  #   command: ["sqlite_web", "/data/agent_state.db", "--host", "0.0.0.0", "--port", "8080"]
+  #   restart: unless-stopped
+
+  # Optional: OpenViking context database (when available)
+  # openviking:
+  #   image: volcengine/openviking:latest
+  #   container_name: arkitekt_openviking
+  #   ports:
+  #     - "7474:7474"
+  #   volumes:
+  #     - ./07__MEMORY_SYSTEM/OPENVIKING:/config:ro
+  #     - openviking_data:/data
+  #   restart: unless-stopped
+
+volumes:
+  qdrant_storage:
+  # openviking_data:

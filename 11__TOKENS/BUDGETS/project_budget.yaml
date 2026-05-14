@@ -1,0 +1,25 @@
+# Project Token Budget
+period: monthly
+reset_day: 1
+
+allocations:
+  total_usd: 2000.00
+  cli_tools:
+    claude_code: 600.00
+    codex: 400.00
+    hermes_agent: 300.00
+    kimi_code: 200.00
+    gemini_cli: 100.00
+  agents:
+    CODER: 300.00
+    RESEARCHER: 200.00
+    CRITIC: 100.00
+    ORCHESTRATOR: 150.00
+  buffers:
+    emergency: 200.00
+    experimentation: 150.00
+
+alert_thresholds:
+  warning: 0.80
+  critical: 0.95
+  hard_stop: 1.00

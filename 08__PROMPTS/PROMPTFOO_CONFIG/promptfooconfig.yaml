@@ -1,0 +1,23 @@
+# PromptFoo Global Config
+# https://promptfoo.dev/docs/configuration/guide
+
+description: "Arkitekt Prompt Registry"
+
+defaults:
+  providers:
+    - openai:gpt-4o
+    - anthropic:claude-3-5-sonnet-20241022
+  targets:
+    - id: default
+      config:
+        temperature: 0.7
+
+sharing:
+  appBaseUrl: https://app.promptfoo.dev
+
+prompts:
+  - file://../REGISTRY/system/orchestrator_system.yaml
+  - file://../REGISTRY/user/brainstorm_prompt.yaml
+
+tests:
+  - file://../TESTS/regression/test_brainstorm.yaml

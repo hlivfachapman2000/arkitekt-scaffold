@@ -1,0 +1,53 @@
+rules:
+  - pattern: "*.{png,jpg,jpeg,gif,svg,webp,avif}"
+    destination: "03__ASSETS/images/"
+    description: "Image assets"
+
+  - pattern: "*.{mp4,mov,avi,webm,mkv}"
+    destination: "03__ASSETS/video/"
+    description: "Video assets"
+
+  - pattern: "*.{mp3,wav,flac,aac,ogg}"
+    destination: "03__ASSETS/audio/"
+    description: "Audio assets"
+
+  - pattern: "*.{md,txt,rst,org}"
+    destination: "06__KNOWLEDGE_VAULT/00__INBOX/"
+    description: "Text notes for vault processing"
+
+  - pattern: "*.{py,js,ts,jsx,tsx,rs,go,java,kt,swift,c,cpp,h,hpp,rb,php}"
+    destination: "02__BACKEND/snippets/"
+    description: "Code snippets"
+
+  - pattern: "*.{log,tmp,temp,cache}"
+    destination: "14__ARCHIVE/temp/"
+    description: "Temporary files"
+
+  - pattern: "*.{zip,tar,gz,tgz,7z,rar,bz2}"
+    destination: "14__ARCHIVE/backups/"
+    description: "Compressed archives"
+
+  - pattern: "*.{pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods}"
+    destination: "00__DOCUMENTATION/imports/"
+    description: "Imported documents"
+
+  - pattern: "*.{sql,dump,db,sqlite,sqlite3}"
+    destination: "07__MEMORY_SYSTEM/SQLITE/imports/"
+    description: "Database files"
+
+  - pattern: "*.{json,jsonl,yaml,yml,toml,xml,csv,parquet}"
+    destination: "02__BACKEND/data/"
+    description: "Data files"
+
+  - pattern: "*.{html,htm,css,scss,less,vue,svelte}"
+    destination: "01__FRONTEND/snippets/"
+    description: "Frontend snippets"
+
+  - pattern: "*.{drawio,excalidraw,puml,mmd}"
+    destination: "00__DOCUMENTATION/diagrams/"
+    description: "Diagrams"
+
+  - pattern: "*.{pem,key,crt,csr,p12,env,secrets}"
+    destination: "14__ARCHIVE/deprecated/"
+    description: "SECURITY RISK — manual review required"
+    action: "quarantine"

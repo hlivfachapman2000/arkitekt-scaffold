@@ -1,0 +1,46 @@
+# ═══════════════════════════════════════════════════════════════
+# ARKITEKT TOPGRADE CONFIG
+# https://github.com/topgrade-rs/topgrade
+# ═══════════════════════════════════════════════════════════════
+
+[git]
+# Pull these repos during update
+repos = [
+    "~/.dotfiles",
+]
+
+[brew]
+# Upgrade casks that auto-update themselves (like Chrome)
+greedy_casks = true
+# Run brew cleanup after upgrade
+autoclean = true
+
+[npm]
+# Use sudo for global npm updates (set false if using nvm/fnm)
+use_sudo = false
+
+[macos]
+# Accept all macOS updates automatically (use with caution!)
+# accept_all_updates = false
+
+[docker]
+# Prune dangling images after update
+prune = true
+
+# ── Additional Steps ──────────────────────────────────────────
+# These run BEFORE the built-in package managers
+[pre_commands]
+# "Custom Pre-Update" = "echo 'Starting arkitekt maintenance...'"
+
+# These run AFTER all updates
+[post_commands]
+# "Arkitekt Memory Sync" = "bash /path/to/SYNC_MEMORY.sh"
+# "Arkitekt Report" = "echo 'Maintenance complete' >> ~/maintenance.log"
+
+# ── Disabled Steps ────────────────────────────────────────────
+# Uncomment to skip specific update steps
+# disable = [
+#     "gem",
+#     "mas",
+#     "system",
+# ]
