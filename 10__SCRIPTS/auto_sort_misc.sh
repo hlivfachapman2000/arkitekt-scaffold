@@ -57,12 +57,13 @@ move_file() {
         mkdir -p "$dst"
         # Handle collisions with timestamp suffix
         if [ -e "${dst}/${basename_src}" ]; then
-            local newname="${basename_src%.*}_$(date +%s)"
-            if [ "$newname" = "_$(date +%s)" ]; then
-                newname="${basename_src}_$(date +%s)"
-            fi
-            if [ "${basename_src}" != "${basename_src%.*}" ]; then
-                newname="${newname}.${basename_src##*.}"
+            local ts suffix newname
+            ts="$(date +%s)"
+            if [[ "$basename_src" == *.* ]]; then
+                suffix=".${basename_src##*.}"
+                newname="${basename_src%.*}_${ts}${suffix}"
+            else
+                newname="${basename_src}_${ts}"
             fi
             mv "$src" "${dst}/${newname}"
             log_entry "| ${basename_src} | ${dst} | ${reason} | renamed to ${newname} |"

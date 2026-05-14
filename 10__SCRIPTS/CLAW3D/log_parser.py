@@ -53,15 +53,15 @@ def parse_logs(base_dir, date=None):
             with open(log_file, 'r') as f:
                 content = f.read()
 
-            # Count message blocks
-            msg_blocks = re.findall(r'\*\*\[([^\]]+)\]\s*(.+?)\*\*', content)
-            msg_count = len(msg_blocks) + content.count('**[')
+            # Count message blocks (each block starts with "---" and a timestamp)
+            msg_count = content.count('**[')
 
-            # Extract timestamp if available
-            ts_match = re.search(r'\*\*\[([^\]]+)\]', content)
-            last_ts = ts_match.group(1) if ts_match else None
+            # Extract most recent timestamp if available
+            ts_matches = re.findall(r'\*\*\[([^\]]+)\]', content)
+            last_ts = ts_matches[-1] if ts_matches else None
 
-            edge_key = tuple(sorted([src, dst])) if src != "broadcast" and dst != "all" else (src, dst)
+            # Preserve directionality for edges (src -> dst)
+            edge_key = (src, dst)
             edges[edge_key]["count"] += max(msg_count, 1)
             if last_ts:
                 edges[edge_key]["last_active"] = last_ts

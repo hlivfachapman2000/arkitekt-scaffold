@@ -8,11 +8,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RECIPIENTS="${SCRIPT_DIR}/recipients.txt"
-TMP_FILE="${RECIPIENTS}.tmp.$$"
-
 OLD_KEY="${1:-}"
-
-trap 'rm -f "${TMP_FILE:-}"' EXIT
 
 if [ -z "$OLD_KEY" ]; then
     echo "❌ Usage: $0 <age-public-key>"
@@ -32,7 +28,9 @@ if ! grep -Fxq "$OLD_KEY" "$RECIPIENTS"; then
 fi
 
 # Remove the key
-grep -Fxv "$OLD_KEY" "$RECIPIENTS" > "${RECIPIENTS}.tmp" && mv "${RECIPIENTS}.tmp" "$RECIPIENTS"
+TMP_FILE="${RECIPIENTS}.tmp.$$"
+trap 'rm -f "$TMP_FILE"' EXIT
+grep -Fxv "$OLD_KEY" "$RECIPIENTS" > "$TMP_FILE" && mv "$TMP_FILE" "$RECIPIENTS"
 echo "✅ Removed recipient: ${OLD_KEY:0:20}..."
 
 # Count remaining recipients

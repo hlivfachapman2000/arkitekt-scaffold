@@ -127,9 +127,26 @@ AGE_PUBLIC_KEY=age1...
 # Master secret for seeding any internal crypto (JWT, session, etc.)
 ARKITEKT_MASTER_SECRET=change-me-to-a-64-char-random-string-now-please
 
+# ── Local Ollama / LM Studio (network + localhost fallback) ──
+# Primary embedding host: network machine (always-on)
+# Replace with your actual Ollama host IP; see .env.local for machine-specific override
+LOCAL_OLLAMA_NETWORK_URL=http://your-ollama-host:11434
+# OpenAI-compatible embeddings endpoint derived from host above
+LOCAL_EMBEDDING_URL=${LOCAL_OLLAMA_NETWORK_URL}/v1/embeddings
+# Fallback: localhost if you run Ollama locally
+# LOCAL_OLLAMA_URL=http://localhost:11434
+# Default embedding model (4096 dims)
+LOCAL_EMBEDDING_MODEL=qwen3-embedding:8b
+LOCAL_EMBEDDING_DIMS=4096
+# Fallback models — NOTE: dimension mismatch risk if primary (4096) is unavailable:
+#   qwen3-embedding:4b → ~2048 dims  (rebuild Qdrant collection if switching)
+#   nomic-embed-text   → ~768  dims  (rebuild Qdrant collection if switching)
+LOCAL_EMBEDDING_FALLBACK_MODELS=qwen3-embedding:4b,nomic-embed-text
+# Optional: chat / generation model hosted locally
+# LOCAL_CHAT_MODEL=llama3.1
+
 # ── Per-Machine Overrides (auto-loaded after .env) ──────────
 # Create .env.local for machine-specific tweaks (also gitignored)
-# Example: LOCAL_MODEL_ENDPOINT=http://localhost:11434
 EOF
 
 # Secrets vault README
@@ -341,7 +358,10 @@ SCAFFOLD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCAFFOLD_SECRETS="${SCAFFOLD_DIR}/04__INFRASTRUCTURE/SECRETS"
 SECRETS_DIR="04__INFRASTRUCTURE/SECRETS"
 
-if [ -d "$SCAFFOLD_SECRETS" ]; then
+# Only copy from scaffold source if it's a different directory (e.g. running
+# INIT_PROJECT.sh from a downloaded copy). When run in-place, the scripts
+# are already present.
+if [ -d "$SCAFFOLD_SECRETS" ] && [ "$SCAFFOLD_SECRETS" != "${PROJECT_ROOT}/${SECRETS_DIR}" ] && [ "$SCAFFOLD_SECRETS" != "${PROJECT_ROOT}/${SECRETS_DIR}/" ]; then
     for script in encrypt.sh decrypt.sh add_recipient.sh remove_recipient.sh validate.sh rotate.sh; do
         src="${SCAFFOLD_SECRETS}/${script}"
         dst="${SECRETS_DIR}/${script}"
@@ -354,19 +374,22 @@ if [ -d "$SCAFFOLD_SECRETS" ]; then
         fi
     done
 else
-    echo "  ⚠️  Scaffold source secrets directory not found."
-    echo "     If running from a standalone INIT_PROJECT.sh, download the scripts from:"
-    echo "     https://github.com/arkitekt/scaffold/04__INFRASTRUCTURE/SECRETS/"
-    echo ""
-    echo "     Or create stubs:"
+    # In-place run: ensure existing scripts are executable; create stubs for missing ones
     for script in encrypt.sh decrypt.sh add_recipient.sh remove_recipient.sh validate.sh rotate.sh; do
-        cat > "${SECRETS_DIR}/${script}" <<'STUBEOF'
+        dst="${SECRETS_DIR}/${script}"
+        if [ -f "$dst" ]; then
+            chmod +x "$dst"
+            echo "  ✅ ${script} (already present)"
+        else
+            cat > "$dst" <<'STUBEOF'
 #!/bin/bash
 # STUB — download the full script from the Arkitekt scaffold repo
 echo "This is a stub. Please copy the real script from the scaffold source."
 exit 1
 STUBEOF
-        chmod +x "${SECRETS_DIR}/${script}"
+            chmod +x "$dst"
+            echo "  ⚠️  ${script} (stub created)"
+        fi
     done
 fi
 
@@ -843,7 +866,6 @@ cat > "12__CLI_HARNESSES/_SHARED/context_sync.py" <<'PYEOF'
 #!/usr/bin/env python3
 """Sync project context across all CLI harnesses."""
 import os
-import shutil
 
 HARNESSES = ["CLAUDE_CODE", "CODEX", "GEMINI_CLI", "KIMI_CODE", "HERMES_AGENT", "OPENCODE"]
 ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -865,7 +887,6 @@ chmod +x "12__CLI_HARNESSES/_SHARED/context_sync.py"
 cat > "12__CLI_HARNESSES/_SHARED/token_router.py" <<'PYEOF'
 #!/usr/bin/env python3
 """Route tasks to the cheapest capable CLI."""
-import yaml
 import os
 
 # TODO: implement cost-based routing with fallback chains

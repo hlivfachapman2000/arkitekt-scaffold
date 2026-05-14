@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Route tasks to the cheapest capable CLI."""
-import yaml
 import os
 
 # TODO: implement cost-based routing with fallback chains

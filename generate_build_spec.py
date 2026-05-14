@@ -46,20 +46,28 @@ if init_project_path.exists():
     content = init_project_path.read_text()
     for m in re.finditer(r'mkdir\s+-p\s+(.+?)(?:\n|\Z)', content):
         line = m.group(1)
-        # Handle brace expansion manually
-        if "{" in line:
-            # Simple brace expansion for common patterns
-            parts = re.findall(r'\{([^}]+)\}|([^\s{}]+)', line)
-            # This is complex — let's just record the raw line
-            for part in line.split():
-                part = part.strip().strip("{}").strip(",")
-                if part and not part.startswith("-"):
-                    BOOTSTRAP_DIRS.add(part.lstrip("./"))
-        else:
-            for part in line.split():
-                part = part.strip().strip("{}").strip(",")
-                if part and not part.startswith("-"):
-                    BOOTSTRAP_DIRS.add(part.lstrip("./"))
+        for part in line.split():
+            part = part.strip().strip("{}").strip(",")
+            if part and not part.startswith("-"):
+                BOOTSTRAP_DIRS.add(part.lstrip("./"))
+
+# ── SECURITY: files that must NEVER be embedded in BUILD_SPEC.md ────────────
+SENSITIVE_NAMES = {
+    ".env", ".env.local", ".env.development", ".env.staging",
+    ".env.production", ".env.age", ".env.example", "recipients.txt",
+}
+SENSITIVE_DIRS = {"keys", "SECRETS"}
+
+
+def is_sensitive(rel_path: str) -> bool:
+    """Return True if the file should be excluded from BUILD_SPEC.md embedding."""
+    parts = Path(rel_path).parts
+    if any(p in SENSITIVE_DIRS for p in parts):
+        return True
+    if Path(rel_path).name in SENSITIVE_NAMES:
+        return True
+    return False
+
 
 # Collect all actual files in the project (excluding .git and generated artifacts)
 all_files = []
@@ -69,8 +77,8 @@ for root, dirs, files in os.walk(PROJECT_ROOT):
     for f in files:
         if f in {".DS_Store", "generate_build_spec.py"}:
             continue
-        rel_path = Path(root).relative_to(PROJECT_ROOT) / f
-        all_files.append(str(rel_path))
+        rel_path = str(Path(root).relative_to(PROJECT_ROOT) / f)
+        all_files.append(rel_path)
 
 all_files.sort()
 
@@ -80,9 +88,9 @@ bootstrap_created = []
 agent_created = []
 
 for f in all_files:
-    if any(f.endswith(a) and f.startswith("05__AGENTS/AGENT__") for a in AGENT_FILES):
+    if any(f.startswith("05__AGENTS/AGENT__") and f.endswith(a) for a in AGENT_FILES):
         agent_created.append(f)
-    elif f in BOOTSTRAP_FILES or any(f.startswith(d.rstrip("/") + "/") or f == d for d in BOOTSTRAP_FILES):
+    elif f in BOOTSTRAP_FILES or any(f.startswith(d.rstrip("/") + "/") for d in BOOTSTRAP_DIRS):
         bootstrap_created.append(f)
     elif f == "INIT_PROJECT.sh":
         bootstrap_created.append(f)
@@ -210,11 +218,15 @@ for dir_name in sorted(by_dir.keys()):
     for f in sorted(by_dir[dir_name]):
         lines.append(f"#### File: `{f}`")
         lines.append("```")
-        try:
-            content = (PROJECT_ROOT / f).read_text()
-            lines.append(content.rstrip())
-        except Exception as e:
-            lines.append(f"# Error reading file: {e}")
+        if is_sensitive(f):
+            lines.append("# [REDACTED — this file contains secrets and is never embedded in BUILD_SPEC.md]")
+            lines.append("# Copy from a secure source after bootstrap.")
+        else:
+            try:
+                content = (PROJECT_ROOT / f).read_text()
+                lines.append(content.rstrip())
+            except Exception as e:
+                lines.append(f"# Error reading file: {e}")
         lines.append("```")
         lines.append("")
 

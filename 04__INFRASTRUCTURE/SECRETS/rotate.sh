@@ -48,21 +48,31 @@ read -p "Press Enter when done..."
 echo ""
 echo -e "${CYAN}Step 2: Generate new master secret${NC}"
 echo "───────────────────────────────────────────────────────────────"
-NEW_MASTER=$(openssl rand -base64 48 2>/dev/null || python3 -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(36)).decode())" 2>/dev/null || cat /dev/urandom | base64 | head -c 64)
+NEW_MASTER=$(openssl rand -base64 48 2>/dev/null || python3 -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(48)).decode())" 2>/dev/null || python3 -c "import os, base64; print(base64.b64encode(os.urandom(48)).decode())" 2>/dev/null)
+if [ -z "$NEW_MASTER" ]; then
+    echo "  ERROR: Could not generate a new master secret. Install openssl or python3."
+    exit 1
+fi
 echo "  New ARKITEKT_MASTER_SECRET: ${NEW_MASTER:0:16}..."
 echo ""
 
 # Update .env if it exists
 if [ -f "$ENV_FILE" ]; then
-    python3 -c "
-import re, sys
-with open('$ENV_FILE', 'r') as f:
+    _ARK_ROTATE_SECRET="$NEW_MASTER" python3 - "$ENV_FILE" << 'PYEOF'
+import re, sys, os
+with open(sys.argv[1], 'r') as f:
     content = f.read()
-content = re.sub(r'^ARKITEKT_MASTER_SECRET=.*$', 'ARKITEKT_MASTER_SECRET=${NEW_MASTER}', content, flags=re.MULTILINE)
-with open('$ENV_FILE', 'w') as f:
-    f.write(content)
-" 2>/dev/null || \
-    perl -pi -e "s/^ARKITEKT_MASTER_SECRET=.*/ARKITEKT_MASTER_SECRET=${NEW_MASTER}/g" "$ENV_FILE"
+new_master = os.environ.get('_ARK_ROTATE_SECRET', '')
+if new_master:
+    content = re.sub(
+        r'^ARKITEKT_MASTER_SECRET=.*$',
+        'ARKITEKT_MASTER_SECRET=' + new_master,
+        content,
+        flags=re.MULTILINE
+    )
+    with open(sys.argv[1], 'w') as f:
+        f.write(content)
+PYEOF
     echo "  Updated .env with new master secret"
 fi
 

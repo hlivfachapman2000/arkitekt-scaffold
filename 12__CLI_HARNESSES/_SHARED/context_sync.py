@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Sync project context across all CLI harnesses."""
 import os
-import shutil
 
 HARNESSES = ["CLAUDE_CODE", "CODEX", "GEMINI_CLI", "KIMI_CODE", "HERMES_AGENT", "OPENCODE"]
 ROOT = os.path.dirname(os.path.dirname(__file__))

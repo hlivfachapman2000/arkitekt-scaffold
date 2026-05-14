@@ -23,7 +23,11 @@ echo ""
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║     🧠 MEMORY SYNC ENGINE                                   ║"
 echo "║     $(date '+%Y-%m-%d %H:%M:%S')                                    ║"
-echo "║     Mode: ${FULL_SYNC:+FULL}Incremental                             ║"
+MODE_TEXT="Incremental"
+if [ "$FULL_SYNC" = true ]; then
+    MODE_TEXT="FULL      "
+fi
+echo "║     Mode: ${MODE_TEXT}                                    ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo ""
 
