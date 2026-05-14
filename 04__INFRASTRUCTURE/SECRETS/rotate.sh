@@ -79,7 +79,11 @@ if [ "$GEN_KEY" = "yes" ]; then
     NEW_KEY_FILE="${OLD_KEYS}/primary.key"
     NEW_PUB_FILE="${OLD_KEYS}/primary.pub"
     age-keygen -o "$NEW_KEY_FILE" 2> "$NEW_PUB_FILE"
-    NEW_PUB=$(cat "$NEW_PUB_FILE")
+    NEW_PUB=$(grep -oE 'age1[0-9a-z]+' "$NEW_PUB_FILE" | head -n1)
+    if [ -z "$NEW_PUB" ]; then
+        echo "  ERROR: Could not extract public key from age-keygen output"
+        exit 1
+    fi
     echo "  Old keys archived to: keys_revoked_${TIMESTAMP}"
     echo "  New public key: $NEW_PUB"
     echo ""

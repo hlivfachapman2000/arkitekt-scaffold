@@ -6,6 +6,11 @@
 
 set -euo pipefail
 
+if ! command -v age &> /dev/null; then
+    echo "ERROR: age not installed. Install with: brew install age  (macOS) or apt install age  (Linux)"
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 ENV_FILE="${PROJECT_ROOT}/.env"

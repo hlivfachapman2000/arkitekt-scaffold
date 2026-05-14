@@ -8,11 +8,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RECIPIENTS="${SCRIPT_DIR}/recipients.txt"
-TMP_FILE="${RECIPIENTS}.tmp"
-
-trap 'rm -f "$TMP_FILE"' EXIT
+TMP_FILE="${RECIPIENTS}.tmp.$$"
 
 OLD_KEY="${1:-}"
+
+trap 'rm -f "${TMP_FILE:-}"' EXIT
 
 if [ -z "$OLD_KEY" ]; then
     echo "❌ Usage: $0 <age-public-key>"
