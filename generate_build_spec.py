@@ -8,7 +8,6 @@ Output: 00__DOCUMENTATION/BUILD_SPEC.md
 """
 
 import os
-import subprocess
 from pathlib import Path
 from datetime import datetime
 
@@ -54,7 +53,7 @@ if init_project_path.exists():
 # ── SECURITY: files that must NEVER be embedded in BUILD_SPEC.md ────────────
 SENSITIVE_NAMES = {
     ".env", ".env.local", ".env.development", ".env.staging",
-    ".env.production", ".env.age", ".env.example", "recipients.txt",
+    ".env.production", ".env.age", "recipients.txt",
 }
 SENSITIVE_DIRS = {"keys", "SECRETS"}
 
@@ -73,7 +72,7 @@ def is_sensitive(rel_path: str) -> bool:
 all_files = []
 for root, dirs, files in os.walk(PROJECT_ROOT):
     # Skip .git and common generated dirs
-    dirs[:] = [d for d in dirs if d not in {".git", "__pycache__", ".venv", "venv", "node_modules", "output", "SORTED", "UNSORTABLE", "QUARANTINE", "reports", "logs", "temp", "backups", "deprecated"}]
+    dirs[:] = [d for d in dirs if d not in {".git", "__pycache__", ".venv", "venv", "node_modules", "output", "SORTED", "UNSORTABLE", "QUARANTINE", "reports", "logs", "temp", "backups", "deprecated", ".claude"}]
     for f in files:
         if f in {".DS_Store", "generate_build_spec.py"}:
             continue
