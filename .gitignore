@@ -93,3 +93,5 @@ Cargo.lock
 
 # ── Keep directory structure ────────────────────────────────
 !.gitkeep
+03__FRONTEND/dist/
+03__FRONTEND/node_modules/
