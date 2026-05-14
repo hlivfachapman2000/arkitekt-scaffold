@@ -38,6 +38,338 @@ mkdir -p {12__CLI_HARNESSES/{CLAUDE_CODE/.claude/auth,CODEX/.codex/mcp,GEMINI_CL
 mkdir -p {13__MISC/INBOX,13__MISC/SORTER_CONFIG/reports,13__MISC/SORTED,13__MISC/UNSORTABLE,13__MISC/QUARANTINE}
 mkdir -p {14__ARCHIVE/{logs,temp,backups,deprecated}}
 
+# ── Secrets Infrastructure ──────────────────────────────────
+echo "🔐 Initializing Secrets Vault..."
+
+mkdir -p "04__INFRASTRUCTURE/SECRETS/keys"
+mkdir -p "04__INFRASTRUCTURE/ENVIRONMENTS"
+
+# Root .env.example (committed — the canonical reference)
+cat > ".env.example" <<'EOF'
+# ═══════════════════════════════════════════════════════════════
+# ARKITEKT UNIVERSAL SCAFFOLD — Environment Variables
+# Copy this file to .env and fill in your actual secrets.
+# NEVER commit .env — it is gitignored by design.
+# For cross-machine sharing, encrypt .env with: ./04__INFRASTRUCTURE/SECRETS/encrypt.sh
+# ═══════════════════════════════════════════════════════════════
+
+# ── Project Identity ──────────────────────────────────────────
+ARKITEKT_PROJECT_NAME=ARKITEKT_PROJECT
+ARKITEKT_ENVIRONMENT=development
+
+# ── AI / LLM Providers ──────────────────────────────────────
+# At least one provider key is required. Fill all that you use.
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=...
+MOONSHOT_API_KEY=...
+GROQ_API_KEY=...
+
+# ── Qdrant Vector Database ──────────────────────────────────
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=                     # Optional: only if Qdrant is secured
+
+# ── SQLite / Memory System ──────────────────────────────────
+SQLITE_DB_PATH=07__MEMORY_SYSTEM/SQLITE/agent_state.db
+
+# ── OpenViking Context DB (optional) ──────────────────────
+OPENVIKING_HOST=localhost
+OPENVIKING_PORT=7474
+OPENVIKING_API_KEY=
+
+# ── TinyFish / Firecrawl Web Crawl ──────────────────────────
+TINYFISH_API_KEY=
+FIRECRAWL_API_KEY=
+
+# ── PromptFoo (optional CI/CD) ────────────────────────────
+PROMPTFOO_API_KEY=
+
+# ── Token Budget Alerts ─────────────────────────────────────
+# Webhook URL for budget overrun alerts (Slack, Discord, etc.)
+ALERT_WEBHOOK_URL=
+
+# ── GitHub / Git ────────────────────────────────────────────
+GITHUB_TOKEN=ghp-...
+GITHUB_USERNAME=
+
+# ── SSH / Signing ───────────────────────────────────────────
+# Paths to SSH keys (relative to home)
+SSH_KEY_PATH=~/.ssh/id_ed25519
+GPG_SIGNING_KEY=
+
+# ── Docker Registry ─────────────────────────────────────────
+DOCKER_REGISTRY_URL=
+DOCKER_REGISTRY_USER=
+DOCKER_REGISTRY_PASS=
+
+# ── Cloud Providers (optional) ──────────────────────────────
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=us-east-1
+AZURE_SUBSCRIPTION_ID=
+GCP_PROJECT_ID=
+
+# ── Database Connections (for backend projects) ─────────────
+DATABASE_URL=sqlite:./local.db
+POSTGRES_URL=
+REDIS_URL=
+MONGODB_URI=
+
+# ── Monitoring / Observability ──────────────────────────────
+SENTRY_DSN=
+DATADOG_API_KEY=
+
+# ── Arkitekt-Specific ───────────────────────────────────────
+# Encryption key for .env.age cross-machine sharing
+# Generate with: age-keygen -o 04__INFRASTRUCTURE/SECRETS/keys/primary.key
+AGE_PUBLIC_KEY=age1...
+
+# Master secret for seeding any internal crypto (JWT, session, etc.)
+ARKITEKT_MASTER_SECRET=change-me-to-a-64-char-random-string-now-please
+
+# ── Per-Machine Overrides (auto-loaded after .env) ──────────
+# Create .env.local for machine-specific tweaks (also gitignored)
+# Example: LOCAL_MODEL_ENDPOINT=http://localhost:11434
+EOF
+
+# Secrets vault README
+cat > "04__INFRASTRUCTURE/SECRETS/README.md" <<'EOF'
+# 🔐 ARKITEKT SECRETS VAULT
+
+**Cross-machine secret management for the Arkitekt scaffold.**
+
+## Philosophy
+
+- **`.env`** = Live secrets. Never committed. Machine-local by default.
+- **`.env.example`** = Committed template. The canonical "what secrets exist" reference.
+- **`.env.age`** = Encrypted bundle. Safe to commit or share via any channel.
+- **`04__INFRASTRUCTURE/SECRETS/keys/`** = Per-machine `age` private keys. Never committed.
+
+## Quick Start
+
+### 1. First-Time Setup (on your primary machine)
+
+```bash
+# Install age if you don't have it
+brew install age          # macOS
+apt-get install age       # Debian/Ubuntu
+
+# Generate a key pair for this machine
+age-keygen -o 04__INFRASTRUCTURE/SECRETS/keys/primary.key
+
+# The public key is printed to stdout — save it in .env:
+# AGE_PUBLIC_KEY=age1...
+
+# Copy .env.example to .env and fill in your secrets
+cp .env.example .env
+# ... edit .env with your actual keys ...
+
+# Encrypt .env into .env.age (safe to commit!)
+./04__INFRASTRUCTURE/SECRETS/encrypt.sh
+```
+
+### 2. Adding a Second Machine
+
+```bash
+# On the NEW machine, after cloning the repo:
+age-keygen -o 04__INFRASTRUCTURE/SECRETS/keys/primary.key
+
+# Copy the NEW public key to your primary machine
+# On PRIMARY machine, add the new public key:
+./04__INFRASTRUCTURE/SECRETS/add_recipient.sh "age1...new-machine-public-key..."
+
+# Re-encrypt .env so both machines can decrypt it
+./04__INFRASTRUCTURE/SECRETS/encrypt.sh
+
+# Push the updated .env.age
+# On the NEW machine, pull and decrypt:
+git pull
+./04__INFRASTRUCTURE/SECRETS/decrypt.sh
+```
+
+### 3. Daily Workflow
+
+```bash
+# After editing .env:
+./04__INFRASTRUCTURE/SECRETS/encrypt.sh
+git add .env.age && git commit -m "Rotate API keys"
+
+# After pulling on another machine:
+git pull
+./04__INFRASTRUCTURE/SECRETS/decrypt.sh
+```
+
+## Security Rules
+
+1. **Never commit `.env`** — it is gitignored globally
+2. **Never commit `keys/*.key`** — these are machine-bound
+3. **Do commit `recipients.txt`** — public keys are safe to share
+4. **Do commit `.env.age`** — encryption is your safety net
+5. **Rotate keys quarterly** — use `./04__INFRASTRUCTURE/SECRETS/rotate.sh`
+6. **Revoke lost machines immediately** — use `remove_recipient.sh` and re-encrypt
+
+## Validation
+
+Before running any agent or script, validate secrets:
+
+```bash
+./04__INFRASTRUCTURE/SECRETS/validate.sh
+```
+
+This checks:
+- All required variables from `TEMPLATE.md` are present in `.env`
+- No dummy values remain (`change-me`, `sk-...`, etc.)
+- No obviously malformed keys (length, prefix checks)
+- File permissions are strict (`chmod 600`)
+EOF
+
+# Secrets template
+cat > "04__INFRASTRUCTURE/SECRETS/TEMPLATE.md" <<'EOF'
+# 🔐 SECRETS TEMPLATE — Arkitekt Scaffold v3.1
+
+This file documents **every** secret variable the scaffold expects.
+It is the single source of truth for:
+- `.env.example` (committed)
+- `validate.sh` (checks)
+- `.env.age` (encrypted live values)
+
+## Variable Catalog
+
+### Project Identity
+| Variable | Required | Format | Example | Description |
+|----------|----------|--------|---------|-------------|
+| `ARKITEKT_PROJECT_NAME` | Yes | string | `MyApp` | Project identifier |
+| `ARKITEKT_ENVIRONMENT` | Yes | dev\|staging\|prod | `development` | Runtime environment |
+
+### AI / LLM Providers
+| Variable | Required | Format | Example | Description |
+|----------|----------|--------|---------|-------------|
+| `OPENAI_API_KEY` | Conditional | `sk-...` | `sk-abc123...` | OpenAI (Codex, GPT) |
+| `ANTHROPIC_API_KEY` | Conditional | `sk-ant-...` | `sk-ant-api03-...` | Anthropic (Claude) |
+| `GOOGLE_API_KEY` | Conditional | string | `AIza...` | Google (Gemini) |
+| `MOONSHOT_API_KEY` | Conditional | string | `sk-...` | Moonshot (Kimi) |
+| `GROQ_API_KEY` | Conditional | `gsk_...` | `gsk_abc...` | Groq inference |
+
+> **Note:** At least one LLM provider key is required. Fill all that you use. Unused keys may be left empty.
+
+### Arkitekt Internal
+| Variable | Required | Format | Example | Description |
+|----------|----------|--------|---------|-------------|
+| `AGE_PUBLIC_KEY` | Yes* | `age1...` | `age1ql3z...` | For `.env.age` encryption |
+| `ARKITEKT_MASTER_SECRET` | Yes | 64+ chars | `...` | Internal crypto seed |
+
+> `AGE_PUBLIC_KEY` is required only if using `.env.age` encryption. Skip if using a password manager.
+
+## Validation Rules
+
+### Strict Checks (Hard Fail)
+- `ARKITEKT_PROJECT_NAME` — non-empty, <= 64 chars
+- `ARKITEKT_ENVIRONMENT` — one of: `development`, `staging`, `production`, `test`
+- `ARKITEKT_MASTER_SECRET` — >= 64 characters, not equal to default
+- At least one LLM provider key — non-empty
+
+### Dummy Value Detection
+The following are rejected as "not configured":
+- `change-me`, `CHANGE-ME`, `replace-me`
+- `sk-...`, `sk-ant-...` (literal ellipsis)
+- `your-key-here`, `your-api-key`, `xxx`
+- `TODO`, `FIXME`, `placeholder`
+- Empty strings for required variables
+EOF
+
+# Recipients template
+cat > "04__INFRASTRUCTURE/SECRETS/recipients.txt" <<'EOF'
+# AGE RECIPIENTS — Arkitekt Secrets Vault
+# One public key per line. Lines starting with # are ignored.
+# Add your machines here, then run encrypt.sh to re-seal .env.age
+
+# Primary machine — replace with your actual age public key
+# age1ql3z7h3gk...  (primary)
+
+# Secondary machine — laptop / server / VM
+# age1xyz...  (secondary)
+EOF
+
+# Environment configs
+cat > "04__INFRASTRUCTURE/ENVIRONMENTS/.env.development" <<'EOF'
+# ENVIRONMENT: DEVELOPMENT
+# Sourced AFTER .env — these values override the base config.
+
+ARKITEKT_ENVIRONMENT=development
+QDRANT_URL=http://localhost:6333
+SQLITE_DB_PATH=07__MEMORY_SYSTEM/SQLITE/agent_state.db
+DEBUG=true
+LOG_LEVEL=debug
+EOF
+
+cat > "04__INFRASTRUCTURE/ENVIRONMENTS/.env.staging" <<'EOF'
+# ENVIRONMENT: STAGING
+# Sourced AFTER .env — these values override the base config.
+
+ARKITEKT_ENVIRONMENT=staging
+QDRANT_URL=https://staging-qdrant.internal:6333
+DEBUG=false
+LOG_LEVEL=info
+AGENT_BUDGET_SAFETY_FACTOR=0.5
+EOF
+
+cat > "04__INFRASTRUCTURE/ENVIRONMENTS/.env.production" <<'EOF'
+# ENVIRONMENT: PRODUCTION
+# Sourced AFTER .env — these values override the base config.
+
+ARKITEKT_ENVIRONMENT=production
+QDRANT_URL=https://qdrant.internal:6333
+DEBUG=false
+LOG_LEVEL=warn
+AGENT_BUDGET_SAFETY_FACTOR=0.3
+EOF
+
+cat > "04__INFRASTRUCTURE/ENVIRONMENTS/.env.local" <<'EOF'
+# ENVIRONMENT: LOCAL (Machine-Specific Overrides)
+# Sourced AFTER .env AND after the active environment file.
+# Use this for THIS MACHINE ONLY — never commit, never share.
+
+# Example: you run Ollama on this machine but not others
+# LOCAL_MODEL_ENDPOINT=http://localhost:11434
+# LOCAL_MODEL_NAME=llama3.1
+EOF
+
+# ── Secrets Management Scripts ──────────────────────────────
+echo "🔐 Installing secrets management scripts..."
+
+SCAFFOLD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCAFFOLD_SECRETS="${SCAFFOLD_DIR}/04__INFRASTRUCTURE/SECRETS"
+SECRETS_DIR="04__INFRASTRUCTURE/SECRETS"
+
+if [ -d "$SCAFFOLD_SECRETS" ]; then
+    for script in encrypt.sh decrypt.sh add_recipient.sh remove_recipient.sh validate.sh rotate.sh; do
+        src="${SCAFFOLD_SECRETS}/${script}"
+        dst="${SECRETS_DIR}/${script}"
+        if [ -f "$src" ]; then
+            cp "$src" "$dst"
+            chmod +x "$dst"
+            echo "  ✅ ${script}"
+        else
+            echo "  ⚠️  ${script} not found in scaffold source"
+        fi
+    done
+else
+    echo "  ⚠️  Scaffold source secrets directory not found."
+    echo "     If running from a standalone INIT_PROJECT.sh, download the scripts from:"
+    echo "     https://github.com/arkitekt/scaffold/04__INFRASTRUCTURE/SECRETS/"
+    echo ""
+    echo "     Or create stubs:"
+    for script in encrypt.sh decrypt.sh add_recipient.sh remove_recipient.sh validate.sh rotate.sh; do
+        cat > "${SECRETS_DIR}/${script}" <<'STUBEOF'
+#!/bin/bash
+# STUB — download the full script from the Arkitekt scaffold repo
+echo "This is a stub. Please copy the real script from the scaffold source."
+exit 1
+STUBEOF
+        chmod +x "${SECRETS_DIR}/${script}"
+    done
+fi
+
 # ── Root Documentation ──────────────────────────────────────
 echo "📝 Writing root documentation..."
 

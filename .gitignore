@@ -36,6 +36,21 @@ Cargo.lock
 *.secrets
 *.credentials
 
+# ── Secrets ───────────────────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.staging.local
+.env.production.local
+.env.age.key
+*.pem
+*.key
+*.p12
+*.secrets
+*.credentials
+04__INFRASTRUCTURE/SECRETS/keys/
+04__INFRASTRUCTURE/SECRETS/keys_revoked_*/
+
 # ── CLI Auth (gitignored by design) ──────────────────────────
 12__CLI_HARNESSES/*/.claude/auth/
 12__CLI_HARNESSES/*/.codex/mcp/*.json
