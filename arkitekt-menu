@@ -1,0 +1,182 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════
+# ARKITEKT INTERACTIVE LAUNCHER v3.1
+# Clear prompting. Unexpected colors. Pure bash.
+# ═══════════════════════════════════════════════════════════════
+
+# ── ANSI Color Palette (unexpected neon combos) ─────────────
+CE="\033[0m"           # Reset
+CB="\033[1m"           # Bold
+C0="\033[38;5;51m"     # Neon Cyan
+C1="\033[38;5;201m"    # Hot Magenta
+C2="\033[38;5;82m"     # Acid Green
+C3="\033[38;5;226m"    # Electric Yellow
+C4="\033[38;5;93m"     # Deep Violet
+C5="\033[38;5;208m"    # Neon Orange
+C6="\033[38;5;51;1m"   # Bold Cyan
+C7="\033[38;5;196;1m"  # Bold Red
+CG="\033[38;5;245m"    # Dim Gray
+CW="\033[97m"          # Bright White
+
+# ── Helpers ─────────────────────────────────────────────────
+_header() {
+    clear
+    echo ""
+    printf "${C6}╔══════════════════════════════════════════════════════════════╗${CE}\n"
+    printf "${C6}║${CE}  ${CB}${C0}🏗️  ARKITEKT${CE} ${C1}UNIVERSAL${CE} ${C2}SCAFFOLD${CE} ${C3}v3.1${CE}                     ${C6}║${CE}\n"
+    printf "${C6}║${CE}     ${CG}Interactive Command Launcher${CE}                            ${C6}║${CE}\n"
+    printf "${C6}╚══════════════════════════════════════════════════════════════╝${CE}\n"
+    echo ""
+}
+
+_button() {
+    local num="$1" color="$2" label="$3" status="$4"
+    printf "  ${color}▓▒░${CE} ${CB}${CW}[${CE}${C6}${num}${CE}${CB}${CW}]${CE} ${color}${label}${CE}"
+    if [ -n "$status" ]; then
+        printf " ${CG}— ${status}${CE}\n"
+    else
+        printf "\n"
+    fi
+}
+
+_separator() {
+    printf "  ${CG}────────────────────────────────────────────────────────${CE}\n"
+}
+
+# ── Binary detection ────────────────────────────────────────
+_has() { command -v "$1" >/dev/null 2>&1; }
+
+_detect_binaries() {
+    CLAUDE_STATUS=$(_has claude && echo "${C2}● ready${CE}" || echo "${C7}○ not installed${CE}")
+    CODEX_STATUS=$(_has codex && echo "${C2}● ready${CE}" || echo "${C7}○ not installed${CE}")
+    GEMINI_STATUS=$(_has gemini && echo "${C2}● ready${CE}" || echo "${C7}○ not installed${CE}")
+    KIMI_STATUS=$(_has kimi-code && echo "${C2}● ready${CE}" || echo "${C7}○ not installed${CE}")
+    HERMES_STATUS=$(_has hermes-agent && echo "${C2}● ready${CE}" || echo "${C7}○ not installed${CE}")
+    OPENCODE_STATUS=$(_has opencode && echo "${C2}● ready${CE}" || echo "${C7}○ not installed${CE}")
+    QDRANT_STATUS=$(docker ps 2>/dev/null | grep -q qdrant && echo "${C2}● running${CE}" || echo "${C7}○ stopped${CE}")
+}
+
+# ── Menu display ────────────────────────────────────────────
+show_menu() {
+    _detect_binaries
+    _header
+
+    printf "  ${CB}${C0}━━━ CLI HARNESSES ━━━${CE}\n\n"
+    _button "1" "$C0" "Launch Claude Code    " "$CLAUDE_STATUS"
+    _button "2" "$C1" "Launch OpenAI Codex   " "$CODEX_STATUS"
+    _button "3" "$C2" "Launch Google Gemini  " "$GEMINI_STATUS"
+    _button "4" "$C3" "Launch Kimi Code      " "$KIMI_STATUS"
+    _button "5" "$C4" "Launch Hermes Agent   " "$HERMES_STATUS"
+    _button "6" "$C5" "Launch Opencode       " "$OPENCODE_STATUS"
+    echo ""
+
+    _separator
+    printf "  ${CB}${C3}━━━ SWARM & CONTEXT ━━━${CE}\n\n"
+    _button "7" "$C3" "Source ALL harnesses  " ""
+    _button "8" "$C1" "Sync Memory → Qdrant  " ""
+    echo ""
+
+    _separator
+    printf "  ${CB}${C5}━━━ INFRASTRUCTURE ━━━${CE}\n\n"
+    _button "9" "$C5" "Start Qdrant Vector DB" "$QDRANT_STATUS"
+    _button "0" "$C4" "System Maintenance    " ""
+    echo ""
+
+    _separator
+    printf "  ${CB}${C2}━━━ SECRETS VAULT ━━━${CE}\n\n"
+    _button "e" "$C2" "Encrypt .env → .env.age" ""
+    _button "d" "$C2" "Decrypt .env.age      " ""
+    _button "v" "$C2" "Validate Secrets      " ""
+    echo ""
+
+    printf "  ${CG}────────────────────────────────────────────────────────${CE}\n"
+    printf "  ${CB}${CW}[${CE}${C7}Q${CE}${CB}${CW}]${CE} ${CG}Quit${CE}\n"
+    echo ""
+
+    printf "  ${C6}▶${CE} ${CW}Enter choice:${CE} "
+}
+
+# ── Execution ───────────────────────────────────────────────
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+exec_choice() {
+    case "$1" in
+        1)
+            printf "\n  ${C0}▶ Launching Claude Code…${CE}\n\n"
+            source "${PROJECT_ROOT}/12__CLI_HARNESSES/CLAUDE_CODE/ALIASES.sh" 2>/dev/null
+            ccd "$@"
+            ;;
+        2)
+            printf "\n  ${C1}▶ Launching OpenAI Codex…${CE}\n\n"
+            source "${PROJECT_ROOT}/12__CLI_HARNESSES/CODEX/ALIASES.sh" 2>/dev/null
+            cx "$@"
+            ;;
+        3)
+            printf "\n  ${C2}▶ Launching Google Gemini…${CE}\n\n"
+            source "${PROJECT_ROOT}/12__CLI_HARNESSES/GEMINI_CLI/ALIASES.sh" 2>/dev/null
+            gem "$@"
+            ;;
+        4)
+            printf "\n  ${C3}▶ Launching Kimi Code…${CE}\n\n"
+            source "${PROJECT_ROOT}/12__CLI_HARNESSES/KIMI_CODE/ALIASES.sh" 2>/dev/null
+            kimi "$@"
+            ;;
+        5)
+            printf "\n  ${C4}▶ Launching Hermes Agent…${CE}\n\n"
+            source "${PROJECT_ROOT}/12__CLI_HARNESSES/HERMES_AGENT/ALIASES.sh" 2>/dev/null
+            hermes "$@"
+            ;;
+        6)
+            printf "\n  ${C5}▶ Launching Opencode…${CE}\n\n"
+            source "${PROJECT_ROOT}/12__CLI_HARNESSES/OPENCODE/ALIASES.sh" 2>/dev/null
+            oc "$@"
+            ;;
+        7)
+            printf "\n  ${C3}▶ Sourcing all harnesses…${CE}\n\n"
+            source "${PROJECT_ROOT}/12__CLI_HARNESSES/_ORCHESTRATOR/source_all.sh"
+            printf "\n  ${C2}✓ All harnesses loaded. Type the command name to launch.${CE}\n"
+            ;;
+        8)
+            printf "\n  ${C1}▶ Syncing memory to Qdrant…${CE}\n\n"
+            "${PROJECT_ROOT}/07__MEMORY_SYSTEM/MEMORY_BRIDGE/sync_to_qdrant.py"
+            ;;
+        9)
+            printf "\n  ${C5}▶ Starting Qdrant…${CE}\n\n"
+            docker compose -f "${PROJECT_ROOT}/07__MEMORY_SYSTEM/QDRANT/docker-compose.qdrant.yml" up -d
+            ;;
+        0)
+            printf "\n  ${C4}▶ Running system maintenance…${CE}\n\n"
+            "${PROJECT_ROOT}/10__SCRIPTS/SYSTEM_MAINTENANCE/UPDATE_ALL.sh"
+            ;;
+        e|E)
+            printf "\n  ${C2}▶ Encrypting secrets…${CE}\n\n"
+            "${PROJECT_ROOT}/04__INFRASTRUCTURE/SECRETS/encrypt.sh"
+            ;;
+        d|D)
+            printf "\n  ${C2}▶ Decrypting secrets…${CE}\n\n"
+            "${PROJECT_ROOT}/04__INFRASTRUCTURE/SECRETS/decrypt.sh"
+            ;;
+        v|V)
+            printf "\n  ${C2}▶ Validating secrets…${CE}\n\n"
+            "${PROJECT_ROOT}/04__INFRASTRUCTURE/SECRETS/validate.sh"
+            ;;
+        q|Q)
+            printf "\n  ${C6}🏗️  Arkitekt out.${CE}\n\n"
+            exit 0
+            ;;
+        *)
+            printf "\n  ${C7}✗ Invalid choice: %s${CE}\n" "$1"
+            ;;
+    esac
+}
+
+# ── Main loop ───────────────────────────────────────────────
+while true; do
+    show_menu
+    read -r choice rest
+    printf "\n"
+    exec_choice "$choice" $rest
+    printf "\n  ${CG}Press Enter to return to menu…${CE}"
+    read -r
+
+done
