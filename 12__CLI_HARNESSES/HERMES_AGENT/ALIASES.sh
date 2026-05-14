@@ -9,10 +9,12 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 # ── Source environment ────────────────────────────────────────
 if [ -f "${PROJECT_ROOT}/.env" ]; then
-    set -a
     # shellcheck source=/dev/null
     source "${PROJECT_ROOT}/.env"
-    set +a
+    # Hermes may use any provider key; export the common ones without leaking all secrets
+    for _key in ANTHROPIC_API_KEY OPENAI_API_KEY GOOGLE_API_KEY MOONSHOT_API_KEY GROQ_API_KEY; do
+        eval "[ -n \"\${${_key}:-}\" ] && export ${_key}"
+    done
 fi
 
 # ── Hermes binary detection ───────────────────────────────────

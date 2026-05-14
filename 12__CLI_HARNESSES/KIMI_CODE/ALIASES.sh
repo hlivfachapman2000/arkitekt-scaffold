@@ -9,17 +9,17 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 # ── Source environment ────────────────────────────────────────
 if [ -f "${PROJECT_ROOT}/.env" ]; then
-    set -a
     # shellcheck source=/dev/null
     source "${PROJECT_ROOT}/.env"
-    set +a
+    # Export only the key this CLI needs (avoids leaking all secrets to child processes)
+    [ -n "${MOONSHOT_API_KEY:-}" ] && export MOONSHOT_API_KEY
 fi
 
 # ── Kimi binary detection ─────────────────────────────────────
 KIMI_BIN=""
 if command -v kimi-code >/dev/null 2>&1; then
     KIMI_BIN="kimi-code"
-elif command -v npx >/dev/null 2>&1 && npm view kimi-code version >/dev/null 2>&1; then
+elif command -v npx >/dev/null 2>&1; then
     KIMI_BIN="npx -y kimi-code"
 fi
 

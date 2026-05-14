@@ -872,72 +872,27 @@ See ALIASES.sh and package manager docs for ${CLI} install instructions.
 See ALIASES.sh for shortcuts.
 EOF
 
-    cat > "12__CLI_HARNESSES/${CLI}/ALIASES.sh" <<EOF
+    # Copy the pre-built ALIASES.sh from scaffold source if available;
+    # otherwise create a minimal stub. This avoids heredoc escaping bugs
+    # and guarantees new projects get the same robust launchers.
+    SCAFFOLD_ALIASES="${SCAFFOLD_DIR}/12__CLI_HARNESSES/${CLI}/ALIASES.sh"
+    if [ -f "$SCAFFOLD_ALIASES" ]; then
+        cp "$SCAFFOLD_ALIASES" "12__CLI_HARNESSES/${CLI}/ALIASES.sh"
+        chmod +x "12__CLI_HARNESSES/${CLI}/ALIASES.sh"
+        echo "  ✅ ${CLI}/ALIASES.sh (from scaffold source)"
+    else
+        cat > "12__CLI_HARNESSES/${CLI}/ALIASES.sh" <<'STUBEOF'
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# ${CLI} CLI Harness — Arkitekt Scaffold v3.1
+# ${CLI} CLI Harness — Arkitekt Scaffold v3.1 (stub)
 # ═══════════════════════════════════════════════════════════════
-
-# ── Resolve project root (two levels up from this file) ─────
-SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="\$(cd "\${SCRIPT_DIR}/../../.." && pwd)"
-
-# ── Source environment ────────────────────────────────────────
-if [ -f "\${PROJECT_ROOT}/.env" ]; then
-    set -a
-    source "\${PROJECT_ROOT}/.env"
-    set +a
-fi
-
-# ── Binary detection ──────────────────────────────────────────
-${CLI}_BIN=""
-if command -v ${CLI_BIN} >/dev/null 2>&1; then
-    ${CLI}_BIN="${CLI_BIN}"
-elif command -v npx >/dev/null 2>&1 && npm view ${CLI_PKG} version >/dev/null 2>&1; then
-    ${CLI}_BIN="npx -y ${CLI_PKG}"
-fi
-
-# ── Install helper ────────────────────────────────────────────
-_arkitekt_${CLI_BIN}_install() {
-    echo "🔧 ${CLI} CLI is not installed."
-    echo ""
-    echo "Install options:"
-    echo "  npm:     npm install -g ${CLI_PKG}"
-    echo "  npx:     npx -y ${CLI_PKG}"
-    echo ""
-    echo "After installing, reload your shell or run:"
-    echo "  source 12__CLI_HARNESSES/${CLI}/ALIASES.sh"
-    return 1
-}
-
-# ── Launch with context ───────────────────────────────────────
-_arkitekt_${CLI_BIN}_launch() {
-    local -a ctx_args=()
-    if [ -d "\${PROJECT_ROOT}/05__AGENTS" ]; then
-        ctx_args+=("--context" "\${PROJECT_ROOT}/05__AGENTS/")
+# This is a stub. For the full harness with binary detection,
+# context-aware launch, and aliases, copy from a scaffold source
+# or see the Arkitekt repo for the complete ALIASES.sh template.
+STUBEOF
+        chmod +x "12__CLI_HARNESSES/${CLI}/ALIASES.sh"
+        echo "  ⚠️  ${CLI}/ALIASES.sh (stub created — copy from scaffold source for full launcher)"
     fi
-    if [ -d "\${PROJECT_ROOT}/06__KNOWLEDGE_VAULT" ]; then
-        ctx_args+=("--context" "\${PROJECT_ROOT}/06__KNOWLEDGE_VAULT/")
-    fi
-    # shellcheck disable=SC2086
-    \${${CLI}_BIN} "\${ctx_args[@]}" "\$@"
-}
-
-# ── Public function ───────────────────────────────────────────
-launch_$(echo "$CLI" | tr '[:upper:]' '[:lower:]')() {
-    if [ -z "\${${CLI}_BIN}" ]; then
-        _arkitekt_${CLI_BIN}_install
-        return 1
-    fi
-    _arkitekt_${CLI_BIN}_launch "\$@"
-}
-
-# ── Self-launch mode ──────────────────────────────────────────
-if [ "\${BASH_SOURCE[0]}" = "\${0}" ]; then
-    launch_$(echo "$CLI" | tr '[:upper:]' '[:lower:]') "\$@"
-fi
-EOF
-    chmod +x "12__CLI_HARNESSES/${CLI}/ALIASES.sh"
 done
 
 # ── Master loader script ──────────────────────────────────────

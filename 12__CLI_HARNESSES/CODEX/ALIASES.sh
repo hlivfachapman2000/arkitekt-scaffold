@@ -9,17 +9,17 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 # ── Source environment ────────────────────────────────────────
 if [ -f "${PROJECT_ROOT}/.env" ]; then
-    set -a
     # shellcheck source=/dev/null
     source "${PROJECT_ROOT}/.env"
-    set +a
+    # Export only the key this CLI needs (avoids leaking all secrets to child processes)
+    [ -n "${OPENAI_API_KEY:-}" ] && export OPENAI_API_KEY
 fi
 
 # ── Codex binary detection ────────────────────────────────────
 CODEX_BIN=""
 if command -v codex >/dev/null 2>&1; then
     CODEX_BIN="codex"
-elif command -v npx >/dev/null 2>&1 && npm view @openai/codex version >/dev/null 2>&1; then
+elif command -v npx >/dev/null 2>&1; then
     CODEX_BIN="npx -y @openai/codex"
 fi
 

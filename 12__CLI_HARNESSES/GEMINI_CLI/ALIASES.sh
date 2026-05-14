@@ -9,17 +9,17 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 # ── Source environment ────────────────────────────────────────
 if [ -f "${PROJECT_ROOT}/.env" ]; then
-    set -a
     # shellcheck source=/dev/null
     source "${PROJECT_ROOT}/.env"
-    set +a
+    # Export only the key this CLI needs (avoids leaking all secrets to child processes)
+    [ -n "${GOOGLE_API_KEY:-}" ] && export GOOGLE_API_KEY
 fi
 
 # ── Gemini binary detection ───────────────────────────────────
 GEMINI_BIN=""
 if command -v gemini >/dev/null 2>&1; then
     GEMINI_BIN="gemini"
-elif command -v npx >/dev/null 2>&1 && npm view @google/gemini-cli version >/dev/null 2>&1; then
+elif command -v npx >/dev/null 2>&1; then
     GEMINI_BIN="npx -y @google/gemini-cli"
 fi
 

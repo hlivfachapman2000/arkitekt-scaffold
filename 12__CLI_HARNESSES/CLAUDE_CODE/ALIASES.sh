@@ -9,17 +9,17 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 # ── Source environment ────────────────────────────────────────
 if [ -f "${PROJECT_ROOT}/.env" ]; then
-    set -a
     # shellcheck source=/dev/null
     source "${PROJECT_ROOT}/.env"
-    set +a
+    # Export only the key this CLI needs (avoids leaking all secrets to child processes)
+    [ -n "${ANTHROPIC_API_KEY:-}" ] && export ANTHROPIC_API_KEY
 fi
 
 # ── Claude Code binary detection ──────────────────────────────
 CLAUDE_BIN=""
 if command -v claude >/dev/null 2>&1; then
     CLAUDE_BIN="claude"
-elif command -v npx >/dev/null 2>&1 && npm view @anthropic-ai/claude-code version >/dev/null 2>&1; then
+elif command -v npx >/dev/null 2>&1; then
     CLAUDE_BIN="npx -y @anthropic-ai/claude-code"
 fi
 
