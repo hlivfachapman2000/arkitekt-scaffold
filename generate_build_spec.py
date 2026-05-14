@@ -74,7 +74,7 @@ for root, dirs, files in os.walk(PROJECT_ROOT):
     # Skip .git and common generated dirs
     dirs[:] = [d for d in dirs if d not in {".git", "__pycache__", ".venv", "venv", "node_modules", "output", "SORTED", "UNSORTABLE", "QUARANTINE", "reports", "logs", "temp", "backups", "deprecated", ".claude"}]
     for f in files:
-        if f in {".DS_Store", "generate_build_spec.py"}:
+        if f in {".DS_Store", "generate_build_spec.py", "BUILD_SPEC.md"}:
             continue
         rel_path = str(Path(root).relative_to(PROJECT_ROOT) / f)
         all_files.append(rel_path)
