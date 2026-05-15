@@ -1,0 +1,92 @@
+{
+  "hierarchy": {
+    "00__DOCUMENTATION": {
+      "specs": [],
+      "prds": [],
+      "adrs": []
+    },
+    "01__FRONTEND": {
+      "src": ["components", "hooks", "lib"],
+      "public": ["assets", "icons"]
+    },
+    "02__BACKEND": {
+      "api": ["v1", "v2"],
+      "services": ["auth", "data", "compute"],
+      "workers": []
+    },
+    "03__ASSETS": {
+      "images": [],
+      "fonts": [],
+      "raw": []
+    },
+    "04__INFRASTRUCTURE": {
+      "docker": [],
+      "terraform": [],
+      "ci_cd": ["github_actions", "deploy_scripts"]
+    },
+    "05__AGENTS": {
+      "CODER": {
+        "sacred_files": ["IDENTITY.md", "SOUL.md", "SKILLS.md", "MEMORY.md", "SCRATCHPAD.md", "KANBAN.md", "HEARTBEAT.md", "CLI_ASSIGNMENT.md"]
+      },
+      "RESEARCHER": {
+        "sacred_files": ["IDENTITY.md", "SOUL.md", "SKILLS.md", "MEMORY.md", "SCRATCHPAD.md", "KANBAN.md", "HEARTBEAT.md", "CLI_ASSIGNMENT.md"]
+      },
+      "ORCHESTRATOR": {
+        "sacred_files": ["IDENTITY.md", "SOUL.md", "SKILLS.md", "MEMORY.md", "SCRATCHPAD.md", "KANBAN.md", "HEARTBEAT.md", "CLI_ASSIGNMENT.md"]
+      }
+    },
+    "06__KNOWLEDGE_VAULT": {
+      "wiki": [],
+      "research_notes": []
+    },
+    "07__MEMORY_SYSTEM": {
+      "sqlite": [],
+      "qdrant": [],
+      "openviking": []
+    },
+    "08__PROMPTS": {
+      "registry": [],
+      "templates": [],
+      "promptfoo": []
+    },
+    "09__RESEARCH": {
+      "loops": [],
+      "experiments": []
+    },
+    "10__SCRIPTS": {
+      "automation": ["auto_sort_misc.sh"],
+      "setup": ["INIT_PROJECT.sh", "INIT_AGENT.sh"],
+      "orchestration": ["SYNC_MEMORY.sh"],
+      "SYSTEM_MAINTENANCE": ["UPDATE_ALL.sh"]
+    },
+    "11__TOKENS": {
+      "budgets": [],
+      "usage": []
+    },
+    "12__CLI_HARNESSES": {
+      "claude_code": [],
+      "gemini_cli": [],
+      "kimi_code": [],
+      "hermes_agent": [],
+      "pi_coding_agent": [],
+      "freebuff": [],
+      "opencode": [],
+      "codex": []
+    },
+    "13__MISC": {
+      "INBOX": [],
+      "QUARANTINE": []
+    },
+    "14__ARCHIVE": {
+      "old_iterations": [],
+      "backups": []
+    },
+    "15__HISTORY": {
+      "commits": [
+        { "id": "7a2f1c", "timestamp": "2026-05-14T11:00:00Z", "msg": "Initialize Agent Swarm", "status": "verified" },
+        { "id": "9b3d2e", "timestamp": "2026-05-14T11:45:00Z", "msg": "Optimize Qdrant Retrieval", "status": "verified" },
+        { "id": "4c5a6b", "timestamp": "2026-05-14T12:05:00Z", "msg": "Deploy Hermes CLI Harness", "status": "deployed" }
+      ]
+    }
+  }
+}
