@@ -4,7 +4,10 @@
  */
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Activity, Cpu, Shield, Clock, Zap } from 'lucide-react';
+import { Activity, Cpu, Shield, Clock, Zap, Brain, Wifi, WifiOff } from 'lucide-react';
+
+interface OllamaHost { host: string; reachable: boolean; models: string[] }
+interface OllamaStatus { hosts: OllamaHost[]; activeHost: string | null; embedModel: string }
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -37,19 +40,14 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export function DashboardHome() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [stats, setStats]   = useState<Stats | null>(null);
+  const [agents, setAgents]   = useState<Agent[]>([]);
+  const [stats, setStats]     = useState<Stats | null>(null);
+  const [ollama, setOllama]   = useState<OllamaStatus | null>(null);
 
   useEffect(() => {
-    fetch('/api/agents')
-      .then(r => r.json())
-      .then(d => setAgents(d.agents ?? []))
-      .catch(() => {});
-
-    fetch('/api/stats')
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => {});
+    fetch('/api/agents').then(r => r.json()).then(d => setAgents(d.agents ?? [])).catch(() => {});
+    fetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {});
+    fetch('/api/ollama/status').then(r => r.json()).then(setOllama).catch(() => {});
   }, []);
 
   const core   = agents.filter(a => a.core);
@@ -108,13 +106,13 @@ export function DashboardHome() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Neural traffic chart */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="lg:col-span-2 bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-5"
+          className="lg:col-span-2 bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-5 lg:col-start-1"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-mono uppercase tracking-widest text-[#555]">
@@ -158,6 +156,52 @@ export function DashboardHome() {
             </AreaChart>
           </ResponsiveContainer>
         </motion.div>
+
+        {/* Ollama status */}
+        {ollama && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.22 }}
+            className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-5"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Brain className="w-3.5 h-3.5 text-[#34d399]" />
+                <h3 className="text-xs font-mono uppercase tracking-widest text-[#555]">Ollama</h3>
+              </div>
+              <span className="text-[9px] font-mono text-[#444]">{ollama.embedModel}</span>
+            </div>
+            <div className="space-y-1.5">
+              {ollama.hosts.map(h => (
+                <div key={h.host} className="flex items-center gap-2">
+                  {h.reachable
+                    ? <Wifi className="w-3 h-3 text-[#22c55e] shrink-0" />
+                    : <WifiOff className="w-3 h-3 text-[#444] shrink-0" />}
+                  <span className="text-[9px] font-mono text-[#555] truncate">{h.host.replace('http://', '')}</span>
+                  {h.reachable && (
+                    <span className="text-[8px] font-mono text-[#22c55e] ml-auto shrink-0">
+                      {h.models.length}m
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {ollama.activeHost && (
+              <div className="mt-3 pt-3 border-t border-[#1a1a1a]">
+                <div className="flex flex-wrap gap-1">
+                  {(ollama.hosts.find(h => h.host === ollama.activeHost)?.models ?? [])
+                    .filter(m => m.includes('embed') || m.includes('qwen3'))
+                    .map(m => (
+                      <span key={m} className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-[#111] border border-[#2a2a2a] text-[#555]">
+                        {m}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {/* Agent roster */}
         <motion.div

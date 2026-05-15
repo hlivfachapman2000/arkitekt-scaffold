@@ -21,6 +21,16 @@ const SCRIPTS_DIR = path.join(ROOT, '10__SCRIPTS');
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
+// ─── Ollama config ────────────────────────────────────────────────────────────
+const OLLAMA_HOSTS = [
+  process.env.LOCAL_OLLAMA_NETWORK_URL,
+  'http://192.168.50.234:11434',   // confirmed network host
+  'http://localhost:11434',
+].filter(Boolean) as string[];
+
+const OLLAMA_EMBED_MODEL  = process.env.LOCAL_EMBEDDING_MODEL  ?? 'qwen3-embedding:8b';
+const OLLAMA_MODELS_AVAIL = ['qwen3-embedding:8b', 'qwen3-embedding:4b', 'nomic-embed-text'];
+
 // ─── Harness definitions ─────────────────────────────────────────────────────
 const HARNESS_COMMANDS: Record<string, { cmd: string; args: string[] }> = {
   CLAUDE_CODE:   { cmd: 'claude',       args: [] },
@@ -176,6 +186,61 @@ app.get('/api/stats', (_req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Ollama: status probe ──────────────────────────────────────────────────────
+app.get('/api/ollama/status', async (_req, res) => {
+  const results = await Promise.all(
+    OLLAMA_HOSTS.map(async (host) => {
+      try {
+        const r = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(4000) });
+        const d = await r.json() as { models?: { name: string }[] };
+        return {
+          host,
+          reachable: true,
+          models: (d.models ?? []).map((m: { name: string }) => m.name),
+        };
+      } catch {
+        return { host, reachable: false, models: [] };
+      }
+    })
+  );
+  const active = results.find(r => r.reachable);
+  res.json({ hosts: results, activeHost: active?.host ?? null, embedModel: OLLAMA_EMBED_MODEL });
+});
+
+// ── Ollama: embed proxy ───────────────────────────────────────────────────────
+app.post('/api/ollama/embed', async (req, res) => {
+  const { texts, model } = req.body as { texts?: string[]; model?: string };
+  if (!texts?.length) return res.status(400).json({ error: 'texts[] required' });
+
+  const targetModel = model ?? OLLAMA_EMBED_MODEL;
+  const modelsToTry = [targetModel, ...OLLAMA_MODELS_AVAIL.filter(m => m !== targetModel)];
+
+  for (const host of OLLAMA_HOSTS) {
+    for (const m of modelsToTry) {
+      try {
+        // Try OpenAI-compat first
+        const r = await fetch(`${host}/v1/embeddings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: m, input: texts }),
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (r.ok) {
+          const d = await r.json() as { data: { embedding: number[] }[] };
+          return res.json({
+            vectors: d.data.map((x: { embedding: number[] }) => x.embedding),
+            model: m,
+            host,
+            dim: d.data[0]?.embedding.length ?? 0,
+          });
+        }
+      } catch { /* try next */ }
+    }
+  }
+
+  res.status(503).json({ error: 'All Ollama hosts unreachable or models unavailable' });
 });
 
 // ─── HTTP Server + WebSocket ──────────────────────────────────────────────────
