@@ -79,7 +79,7 @@ const PATTERNS = [
   { regex: /-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/, type: 'Private Key', severity: 'critical', cve: 'CVE-2021-44523' },
   
   // Authorization headers
-  { regex: /Authorization:\u0020*(Bearer|Basic|Token)\u0020+[A-Za-z0-9_-]{20,}/i, type: 'Authorization Header', severity: 'high', cve: null },
+  { regex: /Authorization:\s+(Bearer|Basic|Token)\s+[A-Za-z0-9_-]{20,}/i, type: 'Authorization Header', severity: 'high', cve: null },
 ];
 
 // DB connection strings use string matching to avoid regex escaping issues
@@ -121,13 +121,14 @@ export function scanForSecrets(filePath, content) {
     // Check DB connection strings (string-based)
     for (const prefix of DB_PREFIXES) {
       if (line.includes(prefix)) {
-        const hasAssignment = line.match(/[=:][\t ]*['\"][^'\"]+/);
-        if (hasAssignment && !isFalsePositive(line, prefix)) {
+        // Extract the quoted value after = or :
+        const m = line.match(/[=:][\t ]*['\"]([^'\"]{10,})['\"]/);
+        if (m && !isFalsePositive(line, m[1])) {
           findings.push({
             type: 'Database Connection String',
             severity: 'critical',
             cve: 'CVE-2021-4323',
-            value: line.includes('const ') ? 'DB connection string found' : hasAssignment[0].slice(0, 50),
+            value: m[1].length > 45 ? m[1].slice(0, 45) + '...' : m[1],
             line: idx + 1,
             file: filePath,
           });
