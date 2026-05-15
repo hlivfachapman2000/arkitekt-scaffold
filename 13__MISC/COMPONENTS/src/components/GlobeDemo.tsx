@@ -1,8 +1,7 @@
 "use client";
 import React, { Suspense } from "react";
-import { motion } from "motion/react";
-import { WorldMap } from "@/components/ui/world-map";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
+import WorldMap from "@/components/ui/world-map";
  
 export function GlobeDemo() {
   return (
