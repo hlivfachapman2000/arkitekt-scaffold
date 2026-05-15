@@ -1,0 +1,8 @@
+# DropZone dependencies
+requests>=2.28.0
+python-dotenv>=1.0.0
+
+# Optional but recommended
+# pdfplumber>=0.10.0  # PDF text extraction
+# python-docx>=1.0.0  # Word document extraction
+# Pillow>=10.0.0      # Image metadata

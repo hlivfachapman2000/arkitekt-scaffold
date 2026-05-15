@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+  --border: #ffffff;
+  --muted: #333333;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html, body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Brutalist: no rounded corners */
+* {
+  border-radius: 0 !important;
+}
+
+/* No shadows anywhere */
+* {
+  box-shadow: none !important;
+}
+
+/* React Flow styles */
+.react-flow__node {
+  font-family: inherit;
+}
+
+.react-flow__edge-path {
+  stroke-width: 1;
+}
+
+.react-flow__controls {
+  background: #000;
+  border: 1px solid #fff;
+}
+
+.react-flow__controls button {
+  background: #000;
+  border-bottom: 1px solid #333;
+  color: #fff;
+  font-family: inherit;
+}
+
+.react-flow__controls button:hover {
+  background: #111;
+}
+
+.react-flow__minimap {
+  background: #000;
+  border: 1px solid #333;
+}
+
+/* Custom scrollbar - stark */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #fff;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ccc;
+}
+
+/* Agent reaction animations - simplified */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes pulse {
+  0%, 100% { border-color: #fff; }
+  50% { border-color: #666; }
+}
+
+.animate-shake {
+  animation: shake 0.3s linear infinite;
+}
+
+.animate-pulse-border {
+  animation: pulse 1s linear infinite;
+}
+
+.animate-tool-flash {
+  animation: none;
+}
+
+/* Brutalist buttons - stark, minimal */
+.btn-brutal {
+  background: #000;
+  border: 1px solid #fff;
+  color: #fff;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.btn-brutal:hover {
+  background: #fff;
+  color: #000;
+}
+
+.btn-brutal:active {
+  background: #ccc;
+}
+
+.btn-brutal.active {
+  background: #fff;
+  color: #000;
+}
+
+/* Brutalist inputs */
+input, select, textarea {
+  background: #000;
+  border: 1px solid #fff;
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 8px;
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #666;
+}
+
+select {
+  cursor: pointer;
+}
+
+/* Brutalist panels */
+.panel-brutal {
+  background: #000;
+  border: 1px solid #fff;
+}
+
+.panel-brutal-header {
+  border-bottom: 1px solid #333;
+  padding: 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #666;
+}

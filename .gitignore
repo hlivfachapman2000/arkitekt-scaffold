@@ -82,5 +82,8 @@ Cargo.lock
 *.log
 10__SCRIPTS/SYSTEM_MAINTENANCE/logs/
 
+# ── Claude worktrees ──────────────────────────────────────
+.claude/worktrees/
+
 # ── Keep directory structure ────────────────────────────────
 !.gitkeep
