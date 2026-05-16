@@ -1,360 +1,485 @@
-#!/bin/bash
-# ═══════════════════════════════════════════════════════════════
-# INIT_AGENT.sh — Spawn a new agent into the swarm
-# Usage: ./INIT_AGENT.sh <AGENT_NAME> <AGENT_ROLE>
-# Example: ./INIT_AGENT.sh CODER "Senior Full-Stack Developer"
-# ═══════════════════════════════════════════════════════════════
+#!/usr/bin/env bash
+#────────────────────────────────────────────────────────────
+# INIT_AGENT.sh — Smart Agent Spawner
+# Reads agent templates, auto-assigns CLI harness, sets up
+# memory files, enforces token budget, validates conventions.
+#────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
-AGENT_NAME="${1:-}"
-AGENT_ROLE="${2:-Agent}"
+# Colors — define globals once, use everywhere
+if [[ -t 1 ]]; then
+  RED=$(printf '\u001b[31m'); GREEN=$(printf '\u001b[32m')
+  YELLOW=$(printf '\u001b[33m'); BLUE=$(printf '\u001b[34m')
+  BOLD=$(printf '\u001b[1m'); RESET=$(printf '\u001b[0m')
+else
+  RED=''; GREEN=''; YELLOW=''; BLUE=''; BOLD=''; RESET=''
+fi
+err()  { echo -e "${RED}[ERROR]${RESET}  $*" 2>&1; }
+ok()   { echo -e "${GREEN}[OK]${RESET}    $*" 2>&1; }
+warn(){ echo -e "${YELLOW}[WARN]${RESET}  $*" 2>&1; }
+infor(){ echo -e "${BLUE}[INFO]${RESET}  $*" 2>&1; }
 
-if [ -z "$AGENT_NAME" ]; then
-    echo "❌ Usage: ./INIT_AGENT.sh <AGENT_NAME> <AGENT_ROLE>"
-    echo "   Example: ./INIT_AGENT.sh CODER \"Senior Full-Stack Developer\""
-    exit 1
+#────────────────────────────────────────────────────────────
+# Usage
+#────────────────────────────────────────────────────────────
+usage() {
+  cat <<'EOF'
+USAGE:
+  ./10__SCRIPTS/INIT_AGENT.sh <NAME> <ROLE> [OPTIONS]
+
+ARGUMENTS:
+  NAME    Agent name (e.g. CODER, RESEARCHER, BUG_HUNTER)
+  ROLE    Template: coder | researcher | sniper | custom
+
+OPTIONS:
+  --template <path>   Custom template .md file
+  --harness <cli>     Force CLI harness (overrides auto-route)
+  --no-budget          Skip token budget check
+  --dry-run            Print what would be done, don't create
+  --force              Overwrite existing agent directory
+  --swarm              Add to _ORCHESTRATOR routing table
+
+EXAMPLES:
+  ./10__SCRIPTS/INIT_AGENT.sh CODER coder
+  ./10__SCRIPTS/INIT_AGENT.sh BUG_HUNTER custom --template ./my-template.md
+  ./10__SCRIPTS/INIT_AGENT.sh RESEARCHER researcher --swarm
+
+EOF
+}
+
+#────────────────────────────────────────────────────────────
+# Parse arguments — collect options first, then positionals
+#────────────────────────────────────────────────────────────
+FORCE=false
+DRY_RUN=false
+SKIP_BUDGET=false
+ADD_TO_SWARM=false
+CUSTOM_TEMPLATE=''
+HARNESS_OVERRIDE=''
+POSITIONAL=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --template)    CUSTOM_TEMPLATE=$2; shift 2 ;;
+    --harness)     HARNESS_OVERRIDE=$2; shift 2 ;;
+    --no-budget)   SKIP_BUDGET=true; shift ;;
+    --dry-run)     DRY_RUN=true; shift ;;
+    --force)       FORCE=true; shift ;;
+    --swarm)       ADD_TO_SWARM=true; shift ;;
+    --help|-h)     usage; exit 0 ;;
+    --*)           echo -e 2>&1; exit 1 ;;
+    *)             POSITIONAL+=($1); shift ;;
+  esac
+done
+
+if [[ ${#POSITIONAL[@]} -lt 2 ]]; then
+  usage; exit 1
+fi
+AGENT_NAME=${POSITIONAL[0]}
+ROLE=${POSITIONAL[1]}
+
+#────────────────────────────────────────────────────────────
+# Validate name format
+#────────────────────────────────────────────────────────────
+if ! [[ $AGENT_NAME =~ ^[A-Z][A-Z0-9_-]*$ ]]; then
+  err 2>&1; exit 1
 fi
 
-AGENT_DIR="05__AGENTS/AGENT__${AGENT_NAME}"
-COMM_LOGS="05__AGENTS/_COMMUNICATION_LOGS/$(date +%Y-%m-%d)"
-TODAY="$(date +%Y-%m-%d)"
-TIMESTAMP="$(date +%Y-%m-%dT%H:%M:%S%z)"
+ROOT_DIR=$(cd . && pwd)
+AGENTS_DIR=$ROOT_DIR/05__AGENTS
+TEMPLATES_DIR=$ROOT_DIR/10__SCRIPTS/_TEMPLATES
+BUDGET_FILE=$ROOT_DIR/11__TOKENS/BUDGETS/project_budget.yaml
 
-echo ""
-echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║     🤖 SPAWNING AGENT: ${AGENT_NAME}"
-echo "║     Role: ${AGENT_ROLE}"
-echo "╚═══════════════════════════════════════════════════════════════╝"
-echo ""
+#────────────────────────────────────────────────────────────
+# Helpers
+#────────────────────────────────────────────────────────────
+require_file() {
+  if [[ ! -f $1 ]]; then
+    err 2>&1; exit 1
+  fi
+}
+require_dir() {
+  if [[ ! -d $1 ]]; then
+    mkdir -p $1
+    ok 2>&1
+  fi
+}
 
-if [ -d "$AGENT_DIR" ]; then
-    echo "⚠️  Agent ${AGENT_NAME} already exists at ${AGENT_DIR}"
-    read -r -p "Overwrite? [y/N] " response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        echo "Aborted."
-        exit 0
-    fi
-fi
+#────────────────────────────────────────────────────────────
+# Route role → CLI harness
+#────────────────────────────────────────────────────────────
+route_harness() {
+  case $1 in
+    coder)           echo CLAUDE_CODE ;;
+    researcher)      echo KIMI_CODE ;;
+    sniper)          echo CODEX ;;
+    creative|brainstorm) echo HERMES_AGENT ;;
+    bug_hunt|recon)  echo CODEX ;;
+    *)               echo CLAUDE_CODE ;;
+  esac
+}
 
-# ── Create Directory Structure ────────────────────────────────
-mkdir -p "${AGENT_DIR}"/{TOOLS,SCRIPTS,MEMORY_ARCHIVE}
-mkdir -p "${COMM_LOGS}"
+#────────────────────────────────────────────────────────────
+# Token budget check
+#────────────────────────────────────────────────────────────
+check_budget() {
+  if $SKIP_BUDGET; then return 0; fi
+  if [[ ! -f $BUDGET_FILE ]]; then
+    warn 2>&1; return 0
+  fi
+  ROLE_UPPER=$(echo $1 | tr '[:lower:]' '[:upper:]')
+  MONTHLY=$(grep -A5 allocations: $BUDGET_FILE 2>/dev/null | grep -E $ROLE_UPPER 2>/dev/null | grep -oE '[0-9]+' | head -1 || echo 0)
+  if [[ -z $MONTHLY || $MONTHLY -eq 0 ]]; then
+    ok 2>&1; return 0
+  fi
+  ok 2>&1
+}
 
-# ── IDENTITY.md ─────────────────────────────────────────────
-cat > "${AGENT_DIR}/IDENTITY.md" <<EOF
+#────────────────────────────────────────────────────────────
+# skills_priority — execute case BEFORE heredoc, avoid nested ;;
+#────────────────────────────────────────────────────────────
+get_skills_priority() {
+  local r=$1
+  case $r in
+    coder)      echo '1. TDD  2. WRITING_PLANS  3. SUBAGENT_DEV  4. SYSTEMATIC_DEBUG  5. GIT_WORKTREES' ;;
+    researcher) echo '1. WRITING_PLANS  2. BRAINSTORMING  3. SUBAGENT_DEV  4. SYSTEMATIC_DEBUG' ;;
+    sniper)     echo '1. WRITING_PLANS  2. TDD  3. SYSTEMATIC_DEBUG' ;;
+    *)          echo '1. WRITING_PLANS  2. TDD  3. SYSTEMATIC_DEBUG' ;;
+  esac
+}
+
+#────────────────────────────────────────────────────────────
+# task_type for swarm routing
+#────────────────────────────────────────────────────────────
+get_task_type() {
+  case $1 in
+    coder)      echo Coding ;;
+    researcher) echo Research ;;
+    sniper)     echo Sniper ;;
+    creative)   echo Creative ;;
+    bug_hunt)   echo 'Bug Hunt' ;;
+    *)          echo General ;;
+  esac
+}
+
+#────────────────────────────────────────────────────────────
+# Write a file using a heredoc, then substitute variables
+# (uses <<-'EOF' so no expansion inside heredoc;
+#  sed does the variable substitution afterward)
+#────────────────────────────────────────────────────────────
+write_file_from_heredoc() {
+  local file=$1
+  local content=$2
+  printf '%s\n' 2>&1
+  # Write content as-is (no variable expansion)
+  printf '%s\n' 2>&1
+  # Apply variable substitutions
+  printf '%s\n' 2>&1
+}
+
+#────────────────────────────────────────────────────────────
+# spawn_agent — create all memory files for an agent
+#────────────────────────────────────────────────────────────
+spawn_agent() {
+  local name=$1 role=$2 harness=$3
+  local agent_dir=$AGENTS_DIR/$name
+  local today=$(date +%Y-%m-%d)
+  local ts=$(date -Iseconds)
+
+  if $FORCE && [[ -d $agent_dir ]]; then
+    warn 2>&1
+  elif [[ -d $agent_dir ]]; then
+    err 2>&1; exit 1
+  fi
+
+  if $DRY_RUN; then
+    infor "[DRY RUN] Would create agent: ${BOLD}$name${RESET}"
+    return 0
+  fi
+
+  require_dir $agent_dir
+
+  # ── IDENTITY.md ─────────────────────────────────────────
+  # Use <<-'EOF' — no expansion inside; sed replaces afterwards
+  cat > $agent_dir/IDENTITY.md <<-'IDENTITY_EOF'
 ---
-name: ${AGENT_NAME}
-role: ${AGENT_ROLE}
+name: __NAME__
+role: __ROLE__
 version: 1.0.0
-created: ${TIMESTAMP}
+created: __TODAY__
 author: arkitekt
 superpowers_version: 2.0.0
 ---
 
-# ${AGENT_NAME}
+# __NAME__
 
 ## Public Identity
-- **Name**: ${AGENT_NAME}
-- **Role**: ${AGENT_ROLE}
-- **Comms Style**: Direct, technical, markdown-native
-- **Harness**: Kimi, Claude, Grok, local LLM
-
-## Superpowers Integration
-- Auto-trigger brainstorming before creative work
-- Enforce RED-GREEN-REFACTOR TDD when coding
-- Subagent-driven development with two-stage review
-- Systematic debugging, verification-before-completion
-
-## Capabilities
-- [ ] To be populated by the agent or human
+- **Name**: __NAME__
+- **Role**: Agent — see template
+- **Comms Style**: Per role template
+- **Harness**: __HARNESS__
 
 ## Version History
-- v1.0.0 — Initial spawn via INIT_AGENT.sh on ${TODAY}
-EOF
+- v1.0.0 — Spawned via INIT_AGENT.sh on __TODAY__
+IDENTITY_EOF
+  sed -i '' -e 's/__NAME__/'$name'/g' -e 's/__ROLE__/'$role'/g' -e 's/__TODAY__/'$today'/g' -e 's/__HARNESS__/'$harness'/g' $agent_dir/IDENTITY.md
 
-# ── SOUL.md ─────────────────────────────────────────────────
-cat > "${AGENT_DIR}/SOUL.md" <<EOF
+  # ── KANBAN.md ────────────────────────────────────────────
+  cat > $agent_dir/KANBAN.md <<-'KANBAN_EOF'
 ---
-name: ${AGENT_NAME}
-version: 1.0.0
-created: ${TIMESTAMP}
----
-
-# SOUL — ${AGENT_NAME}
-
-## Core Directives
-1. Prefer simple over complex
-2. Ask before assuming
-3. Document everything in markdown
-4. Respect the arkitekt's creative chaos
-5. If a skill from _SUPERPOWERS/ applies, USE IT
-
-## Behavioral Guardrails
-- Never auto-write identity files (human review required)
-- Expire stale memory aggressively
-- Celebrate the impossible
-- Token-efficient: compress before expanding
-- Verify before declaring completion
-
-## Decision Principles
-- When uncertain, consult _ORCHESTRATOR
-- When quality is in doubt, escalate to _CRITIC
-- When memory conflicts arise, call _MEMORY_KEEPER
-- Always leave SCRATCHPAD cleaner than you found it
-
-## Sacred Lines
-- "Simplicity is the ultimate sophistication."
-- "A well-named file is half the battle."
-- "The impossible is just the possible that hasn't been tried."
-EOF
-
-# ── SKILLS.md ───────────────────────────────────────────────
-cat > "${AGENT_DIR}/SKILLS.md" <<EOF
----
-name: ${AGENT_NAME}
-version: 1.0.0
-created: ${TIMESTAMP}
+agent: __NAME__
+created: __TODAY__
 ---
 
-# SKILLS — ${AGENT_NAME}
+# KANBAN — __NAME__
 
-## Active Skills
-| Skill | Source | Proficiency |
-|-------|--------|-------------|
-| ${AGENT_ROLE} | innate | seedling |
+## Columns
+| Column  | WIP Limit | Description |
+|---------|-----------|-------------|
+| BACKLOG | —         | Pending tasks |
+| DOING   | 1         | Active task (SNIPER: always 1) |
+| REVIEW  | 2         | Awaiting _CRITIC |
+| DONE    | —         | Completed, merged, tested |
 
-## Available Tools
-List all tools this agent can invoke:
-- [ ] Tool name — purpose — invocation pattern
+## Board
+<!-- Auto-managed by _ORCHESTRATOR -->
+KANBAN_EOF
+  sed -i '' -e 's/__NAME__/'$name'/g' -e 's/__TODAY__/'$today'/g' $agent_dir/KANBAN.md
 
-## API Boundaries
-- APIs this agent MAY call:
-  - (to be configured)
-- APIs this agent MUST NOT call:
-  - Production deployment APIs (require _CRITIC approval)
-
-## Skill Loading Rules
-1. Check _SUPERPOWERS/SKILLS/ before defining custom skills
-2. If a superpower applies (>1% chance of relevance), load it
-3. Declare skill activation in SCRATCHPAD.md
-4. After use, log effectiveness in MEMORY.md
-EOF
-
-# ── MEMORY.md ───────────────────────────────────────────────
-cat > "${AGENT_DIR}/MEMORY.md" <<EOF
+  # ── HEARTBEAT.md ─────────────────────────────────────────
+  cat > $agent_dir/HEARTBEAT.md <<-'HEARTBEAT_EOF'
 ---
-name: ${AGENT_NAME}
-version: 1.0.0
-created: ${TIMESTAMP}
+agent: __NAME__
+last_ping: __TS__
+health: healthy
+load: idle
 ---
 
-# MEMORY — ${AGENT_NAME}
+# HEARTBEAT — __NAME__
 
-## Verified Facts
-Facts that have been reviewed and confirmed:
-- (none yet — populate during sessions)
+## Status
+- **Health**: healthy
+- **Load**: idle
+- **Last ping**: __TS__
 
-## Learned Lessons
-Lessons from completed tasks:
-- (none yet)
+## Metrics
+| Metric         | Value |
+|----------------|-------|
+| Tasks done     | 0 |
+| Tokens used    | 0 |
+| Tokens budget  | see 11__TOKENS/ |
+| Success rate   | — |
 
-## User Preferences
-- Communication style: (to be learned)
-- Preferred stack: (to be learned)
-- Known pain points: (to be learned)
+## Health Rules
+- Unhealthy if load > 90% for > 5 min
+- Escalate to _ORCHESTRATOR on unhealthy
+HEARTBEAT_EOF
+  sed -i '' -e 's/__NAME__/'$name'/g' -e 's/__TS__/'$ts'/g' $agent_dir/HEARTBEAT.md
 
-## Agent Relationships
-| Agent | Role | Trust Level | Notes |
-|-------|------|-------------|-------|
-| _ORCHESTRATOR | Meta-agent | high | Routes all tasks |
-| _CRITIC | Quality gate | high | Reviews output |
-| _MEMORY_KEEPER | Sync manager | high | Resolves conflicts |
+  # ── MEMORY.md ─────────────────────────────────────────────
+  cat > $agent_dir/MEMORY.md <<-'MEMORY_EOF'
+# MEMORY — __NAME__
 
-## Memory Maintenance
-- Review and compress weekly
-- Archive daily logs to MEMORY_ARCHIVE/
-- Mark stale entries with ~~strikethrough~~
-EOF
+## Agent Facts
+- **Name**: __NAME__
+- **Role**: __ROLE__
+- **CLI Harness**: __HARNESS__
+- **Spawned**: __TODAY__
 
-# ── SCRATCHPAD.md ───────────────────────────────────────────
-cat > "${AGENT_DIR}/SCRATCHPAD.md" <<EOF
----
-name: ${AGENT_NAME}
-status: idle
-created: ${TIMESTAMP}
----
+## Project Conventions
+<!-- Fill in as you learn them -->
 
-# SCRATCHPAD — ${AGENT_NAME}
+## Key Learnings
+<!-- Document decisions, patterns, gotchas -->
+
+## Stack Info
+<!-- Language, frameworks, tools used in this project -->
+MEMORY_EOF
+  sed -i '' -e 's/__NAME__/'$name'/g' -e 's/__ROLE__/'$role'/g' -e 's/__TODAY__/'$today'/g' -e 's/__HARNESS__/'$harness'/g' $agent_dir/MEMORY.md
+
+  # ── SCRATCHPAD.md ─────────────────────────────────────────
+  cat > $agent_dir/SCRATCHPAD.md <<-'SCRATCHPAD_EOF'
+# SCRATCHPAD — __NAME__
+<!-- Ephemeral working notes — cleared after each task -->
 
 ## Current Task
-- **Status**: idle
-- **Task ID**: (none)
-- **Started**: (none)
-- **ETA**: (none)
+*none*
 
-## Working Context
-(Use this space for temporary working state. Cleared on task completion.)
+## In-Progress Notes
+-
 
-## Notes to Self
-- (none)
+## Todo
+- [ ]
+SCRATCHPAD_EOF
+  sed -i '' -e 's/__NAME__/'$name'/g' $agent_dir/SCRATCHPAD.md
 
-## Blockers
-- (none)
-
-## Next Actions
-- (none)
-EOF
-
-# ── KANBAN.md ─────────────────────────────────────────────────
-cat > "${AGENT_DIR}/KANBAN.md" <<EOF
+  # ── CLI_ASSIGNMENT.md ─────────────────────────────────────
+  local fallback
+  fallback=$([[ $harness == CLAUDE_CODE ]] && echo CODEX || echo CLAUDE_CODE)
+  cat > $agent_dir/CLI_ASSIGNMENT.md <<-'CLI_EOF'
 ---
-name: ${AGENT_NAME}
-version: 1.0.0
-created: ${TIMESTAMP}
+agent: __NAME__
+harness: __HARNESS__
+fallback: __FALLBACK__
 ---
 
-# KANBAN — ${AGENT_NAME}
-
-## Backlog
-- [ ] Initialize agent skills and capabilities
-- [ ] Complete first assigned task
-- [ ] Log initial observations to MEMORY.md
-
-## Doing
-- [ ] Agent bootstrap and calibration
-
-## Review
-- (none)
-
-## Done
-- [x] Spawned on ${TODAY}
-
-## Archive
-- (none)
-EOF
-
-# ── HEARTBEAT.md ──────────────────────────────────────────────
-cat > "${AGENT_DIR}/HEARTBEAT.md" <<EOF
----
-name: ${AGENT_NAME}
-last_active: ${TIMESTAMP}
-status: healthy
----
-
-# HEARTBEAT — ${AGENT_NAME}
-
-## Session Metadata
-- **Last Active**: ${TIMESTAMP}
-- **Current Status**: healthy
-- **Current Load**: idle
-- **Session Count**: 0
-- **Total Tasks Completed**: 0
-
-## Performance Metrics
-- **Avg Tokens per Task**: N/A
-- **Avg Time per Task**: N/A
-- **Success Rate**: N/A
-- **User Satisfaction**: N/A
-
-## Health Checks
-- [x] IDENTITY.md readable
-- [x] SOUL.md readable
-- [x] MEMORY.md writable
-- [x] SCRATCHPAD.md writable
-- [x] KANBAN.md writable
-
-## Alerts
-- (none)
-EOF
-
-# ── CLI_ASSIGNMENT.md ───────────────────────────────────────
-cat > "${AGENT_DIR}/CLI_ASSIGNMENT.md" <<EOF
----
-name: ${AGENT_NAME}
-version: 1.0.0
-created: ${TIMESTAMP}
----
-
-# CLI_ASSIGNMENT — ${AGENT_NAME}
+# CLI Assignment — __NAME__
 
 ## Primary Harness
-- **CLI Tool**: (to be assigned)
-- **Model**: (to be assigned)
-- **Reason**: (to be assigned)
+**__HARNESS__** — auto-routed for role '__ROLE__'
+
+## Harness Setup
+Source: \"./12__CLI_HARNESSES/__HARNESS__/ALIASES.sh\"
 
 ## Fallback Chain
-1. (to be assigned)
-2. (to be assigned)
-3. (to be assigned)
+__HARNESS__ → __FALLBACK__ → GEMINI_CLI
+CLI_EOF
+  sed -i '' -e 's/__NAME__/'$name'/g' -e 's/__ROLE__/'$role'/g' -e 's/__HARNESS__/'$harness'/g' -e 's/__FALLBACK__/'$fallback'/g' $agent_dir/CLI_ASSIGNMENT.md
 
-## Task-Specific Overrides
-| Task Type | Preferred CLI | Rationale |
-|-----------|-------------|-----------|
-| creative | (pending) | |
-| research | (pending) | |
-| coding | (pending) | |
-| review | (pending) | |
+  # ── SKILLS.md ─────────────────────────────────────────────
+  # Compute skills priority OUTSIDE heredoc to avoid ;; nesting issues
+  local skills_pri
+  skills_pri=$(get_skills_priority $role)
+  cat > $agent_dir/SKILLS.md <<-'SKILLS_EOF'
+# SKILLS — __NAME__
 
-## Notes
-- Update this file when reassigning the agent to a different CLI
-- Log all assignments in _COMMUNICATION_LOGS/
-EOF
+## Available Skills
+See: 05__AGENTS/_SUPERPOWERS/SKILLS/
 
-# ── Register in Token Budgets ───────────────────────────────
-mkdir -p "11__TOKENS/BUDGETS"
-if [ ! -f "11__TOKENS/BUDGETS/per_agent_budgets.yaml" ]; then
-cat > "11__TOKENS/BUDGETS/per_agent_budgets.yaml" <<'BUDEOF'
-# Per-Agent Token Budgets
-agents:
-BUDEOF
-fi
+## Priority Order (per role)
+__SKILLS_PRI__
 
-if ! grep -q "${AGENT_NAME}:" "11__TOKENS/BUDGETS/per_agent_budgets.yaml" 2>/dev/null; then
-    cat >> "11__TOKENS/BUDGETS/per_agent_budgets.yaml" <<EOF
-  ${AGENT_NAME}:
-    monthly_usd: 100.00
-    daily_usd: 5.00
-    model_tier: standard
-    alert_at: 0.80
-EOF
-fi
+## Loading a Skill
+Use the \"/skill <name>\" command in Codebuff to load a skill.
+SKILLS_EOF
+  sed -i '' -e 's/__NAME__/'$name'/g' -e 's/__SKILLS_PRI__/'$skills_pri'/g' $agent_dir/SKILLS.md
 
-# ── Log Spawn Event ─────────────────────────────────────────
-cat >> "${COMM_LOGS}/broadcast_events.md" <<EOF
-
+  # ── SOUL.md ───────────────────────────────────────────────
+  cat > $agent_dir/SOUL.md <<-'SOUL_EOF'
 ---
-**[$(date +%Y-%m-%dT%H:%M:%S%z)] SPAWN EVENT**
-- **Agent**: ${AGENT_NAME}
-- **Role**: ${AGENT_ROLE}
-- **Action**: initialized
-- **Directory**: ${AGENT_DIR}
-- **By**: arkitekt via INIT_AGENT.sh
+name: __NAME__
+version: 1.0.0
+created: __TODAY__
 ---
-EOF
 
-# ── Make Executable Scripts ─────────────────────────────────
-touch "${AGENT_DIR}/TOOLS/.gitkeep"
-touch "${AGENT_DIR}/SCRIPTS/.gitkeep"
+# SOUL — __NAME__
 
-# ── Final Report ────────────────────────────────────────────
-echo "✅ Agent ${AGENT_NAME} spawned successfully!"
-echo ""
-echo "📁 Location: ${AGENT_DIR}"
-echo ""
-echo "Sacred Files Created:"
-echo "  📄 IDENTITY.md      — Public persona"
-echo "  🕊️  SOUL.md          — Core values & guardrails"
-echo "  🛠️  SKILLS.md        — Capabilities & tools"
-echo "  🧠 MEMORY.md         — Verified long-term facts"
-echo "  📝 SCRATCHPAD.md     — Working memory"
-echo "  📋 KANBAN.md         — Task board"
-echo "  💓 HEARTBEAT.md      — Health & metrics"
-echo "  🔌 CLI_ASSIGNMENT.md — Harness mapping"
-echo ""
-echo "Next steps:"
-echo "  1. Review and customize IDENTITY.md and SOUL.md"
-echo "  2. Populate SKILLS.md with actual capabilities"
-echo "  3. Assign a CLI harness in CLI_ASSIGNMENT.md"
-echo "  4. Start assigning tasks via _ORCHESTRATOR/"
-echo ""
+## Core Directives
+1. Ship working code — not perfect code
+2. Always write a plan before > 5 min tasks
+3. Document decisions in MEMORY.md
+4. Respect token budgets in 11__TOKENS/
+5. Escalate to _ORCHESTRATOR on blockers
+
+## Behavioral Guardrails
+- Check KANBAN.md before picking up new tasks
+- Keep SCRATCHPAD.md clean after each task
+- Never commit secrets to the repo
+- _CRITIC must approve REVIEW items
+
+## Sacred Lines
+- \"Make it work, make it right, make it fast — in that order.\"
+- \"If it's not tested, it's broken.\"
+SOUL_EOF
+  sed -i '' -e 's/__NAME__/'$name'/g' -e 's/__TODAY__/'$today'/g' $agent_dir/SOUL.md
+
+  ok 2>&1
+}
+
+#────────────────────────────────────────────────────────────
+# Add agent to _ORCHESTRATOR routing table
+#────────────────────────────────────────────────────────────
+add_to_swarm() {
+  local name=$1 role=$2 harness=$3
+  local orchestrator=$AGENTS_DIR/_ORCHESTRATOR/IDENTITY.md
+
+  if [[ ! -f $orchestrator ]]; then
+    warn 2>&1; return 0
+  fi
+
+  if grep -q $name $orchestrator 2>/dev/null; then
+    ok 2>&1; return 0
+  fi
+
+  local task_type; task_type=$(get_task_type $role)
+  local new_row; new_row=$(printf '| %-18s | %-12s | %s (%s) |' $name $task_type $name $harness)
+  sed -i '' '/| Task Type | Default Agent | Notes |/a '${new_row} $orchestrator
+
+  ok 2>&1
+}
+
+#────────────────────────────────────────────────────────────
+# Validate project structure
+#────────────────────────────────────────────────────────────
+validate_conventions() {
+  local missing=0
+  for dir in 05__AGENTS 08__PROMPTS 10__SCRIPTS 11__TOKENS; do
+    if [[ ! -d $ROOT_DIR/$dir ]]; then
+      err 2>&1; missing=1
+    fi
+  done
+  if [[ $missing -eq 1 ]]; then
+    err 2>&1; exit 1
+  fi
+  ok 2>&1
+}
+
+#────────────────────────────────────────────────────────────
+# Main
+#────────────────────────────────────────────────────────────
+main() {
+  infor "INIT_AGENT.sh — Smart Agent Spawner"
+  infor ""
+
+  validate_conventions
+
+  # Resolve template path
+  local template_file=$ROLE
+  case $ROLE in
+    coder|researcher|sniper)
+      local cand=$TEMPLATES_DIR/$(echo $ROLE | tr '[:lower:]' '[:upper:]').md
+      if [[ -f $cand ]]; then
+        template_file=$cand; ok 2>&1
+      else
+        local lc_cand=$TEMPLATES_DIR/$(echo $ROLE | tr '[:upper:]' '[:lower:]').md
+        if [[ -f $lc_cand ]]; then
+          template_file=$lc_cand; ok 2>&1
+        else
+          warn 2>&1; template_file=$ROLE
+        fi
+      fi
+      ;;
+    custom)
+      if [[ -z $CUSTOM_TEMPLATE ]]; then
+        err 2>&1; exit 1
+      fi
+      require_file $CUSTOM_TEMPLATE
+      template_file=$CUSTOM_TEMPLATE
+      ;;
+  esac
+
+  local harness=${HARNESS_OVERRIDE:-$(route_harness $ROLE)}
+  check_budget $ROLE
+
+  if $DRY_RUN; then
+    infor "[DRY RUN] Would create agent: ${BOLD}$AGENT_NAME${RESET}"
+    infor "  Role:     $ROLE"
+    infor "  Harness:  $harness"
+    infor "  Template: $template_file"
+    $ADD_TO_SWARM && infor "  Swarm:    YES — adding to _ORCHESTRATOR routing table"
+    infor ""
+    infor "Run without --dry-run to actually create the agent."
+    return 0
+  fi
+
+  spawn_agent $AGENT_NAME $ROLE $harness $template_file
+
+  if $ADD_TO_SWARM; then
+    add_to_swarm $AGENT_NAME $ROLE $harness
+  fi
+
+  echo -e 2>&1
+}
+
+main
