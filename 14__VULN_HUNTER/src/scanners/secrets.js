@@ -68,7 +68,28 @@ const PATTERNS = [
   // Stripe
   { regex: /sk_live_[0-9a-zA-Z]{24,}/, type: 'Stripe Live Key', severity: 'critical', cve: 'CVE-2023-28432' },
   { regex: /rk_live_[0-9a-zA-Z]{24,}/, type: 'Stripe Restricted Key', severity: 'high', cve: 'CVE-2023-28432' },
-  
+
+  // Azure (connection strings contain AccountKey=)
+  { regex: /AccountKey=[a-zA-Z0-9+_/=]{40,}/, type: 'Azure Storage Account Key', severity: 'critical', cve: 'CVE-2023-2415' },
+  { regex: /DefaultEndpoints=[^;]+;AccountKey=[a-zA-Z0-9+_/=]{40,}/, type: 'Azure Connection String', severity: 'critical', cve: 'CVE-2023-2415' },
+
+  // Cloudflare
+  { regex: /CF-[a-zA-Z0-9]{32,}/, type: 'Cloudflare API Token', severity: 'high', cve: 'CVE-2023-3711' },
+  { regex: /[a-zA-Z0-9]{37}\.cloudflareaccess\.com/, type: 'Cloudflare Access Token', severity: 'high', cve: null },
+
+  // Twilio (must have SK prefix + exactly 32 hex chars)
+  { regex: /SK[0-9a-fA-F]{32}/, type: 'Twilio API Key', severity: 'high', cve: 'CVE-2023-3152' },
+  { regex: /AC[a-zA-Z0-9]{32}/, type: 'Twilio Account SID', severity: 'medium', cve: null },
+
+  // SendGrid
+  { regex: /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}/, type: 'SendGrid API Key', severity: 'critical', cve: 'CVE-2023-3011' },
+
+  // NPM
+  { regex: /npm_[a-zA-Z0-9]{36}/, type: 'NPM Access Token', severity: 'high', cve: null },
+
+  // PyPI
+  { regex: /pypi-AgEIcGlsbGU[a-zA-Z0-9_-]{50}/, type: 'PyPI Token', severity: 'critical', cve: null },
+
   // Slack
   { regex: /xox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24,}/, type: 'Slack Token', severity: 'high', cve: 'CVE-2022-3773' },
   
