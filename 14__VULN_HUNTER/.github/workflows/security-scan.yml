@@ -1,0 +1,114 @@
+name: VulnHunter Security Scan
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main]
+  schedule:
+    # Run daily at 2am UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  vuln-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 14__VULN_HUNTER/package-lock.json
+
+      - name: Install VulnHunter
+        run: |
+          cd 14__VULN_HUNTER
+          npm install
+
+      - name: Run VulnHunter Secret Scan
+        id: secrets-scan
+        run: |
+          cd 14__VULN_HUNTER
+          node src/cli.js secrets . -o ${{ github.workspace }}/secrets-report.json
+          echo \"SEVERITY=$(cat secrets-report.json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len([f for f in d[\"findings\"] if f[\"severity\"]==\"critical\"]))' 2>/dev/null || echo '0')\" >> $GITHUB_OUTPUT
+
+      - name: Run VulnHunter Full Scan
+        run: |
+          cd 14__VULN_HUNTER
+          node src/cli.js scan . -o ${{ github.workspace }}/vuln-report.json
+
+      - name: Upload Secrets Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuln-hunter-secrets
+          path: secrets-report.json
+          retention-days: 30
+
+      - name: Upload Full Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuln-hunter-full
+          path: vuln-report.json
+          retention-days: 30
+
+      - name: Display Critical Findings
+        if: steps.secrets-scan.outputs.SEVERITY > 0
+        run: |
+          echo \"🚨 CRITICAL SECURITY ISSUES FOUND\"
+          cat secrets-report.json | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+for f in d.get(\"findings\", []):
+  if f[\"severity\"] == \"critical\":
+    print(f\"  ❌ {f[\"type\"]} in {f[\"file\"]}:{f[\"line\"]}\")'
+          exit 1
+
+      - name: Generate HTML Report
+        run: |
+          cd 14__VULN_HUNTER
+          node src/cli.js scan . -f html -o ${{ github.workspace }}/security-report.html 2>/dev/null || true
+
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            try {
+              const report = JSON.parse(fs.readFileSync('${{ github.workspace }}/vuln-report.json', 'utf8'));
+              const critical = report.by_severity?.critical || 0;
+              const total = report.total || 0;
+              
+              let body = `## 🔍 VulnHunter Security Scan Results\n\n`;
+              body += `Scanned \uD83D\uDD10 **${total}** vulnerability(ies)\n\n`;
+              
+              if (critical > 0) {
+                body += `⚠️ **${critical} CRITICAL** findings require immediate attention!\n\n`;
+                for (const f of report.findings || []) {
+                  if (f.severity === 'critical') {
+                    body += `- **${f.type}**: \uD83D\uDCC4 \uD83D\uDCC1 \uD83D\uDCCD ${f.file}:${f.line}\n`;
+                  }
+                }
+              } else {
+                body += `✅ **No critical vulnerabilities detected**\n`;
+              }
+              
+              body += `\n_This scan was performed by [VulnHunter](https://github.com/VampDev/vuln-hunter)_`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            } catch (e) {
+              console.log('Could not post comment:', e.message);
+            }

@@ -21,7 +21,7 @@ program
   .option('-s, --secrets-only', 'Only scan for secrets')
   .option('-c, --code-only', 'Only scan for code patterns')
   .option('-o, --output <file>', 'Save report to file')
-  .option('-f, --format <format>', 'Format: console, json, markdown, html', 'console')
+  .option('-f, --format <format>', 'Output format: console, json, markdown, html', 'console')
   .action(async (path, options) => {
     console.log(chalk.bold.cyan('\n VulnHunter - Vulnerability Scanner'));
     console.log(chalk.gray('-'.repeat(50)));
@@ -89,7 +89,7 @@ program
   .command('hunter <repo_url>')
   .description('Scan a GitHub repository URL for vulnerabilities')
   .option('-o, --output <file>', 'Save report to file')
-  .option('-f, --format <format>', 'Format: console, json, markdown, html', 'console')
+  .option('-f, --format <format>', 'Output format: console, json, markdown, html', 'console')
   .action(async (repoUrl, options) => {
     console.log(chalk.bold.cyan('\n VulnHunter - GitHub Hunter Mode'));
     console.log(chalk.gray('-'.repeat(50)));
